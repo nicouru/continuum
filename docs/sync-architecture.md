@@ -49,10 +49,11 @@ Recommended policy:
 - On failure, keep the note dirty/error locally and retry with backoff, for
   example 15 s, 30 s, 60 s, then up to 5 min.
 
-The current MVP implementation is intentionally more direct: it saves locally
-after the editor debounce, starts a periodic dirty flush, and can trigger a sync
-after local autosave. Before using production online sync heavily, tighten this
-so frequent local autosave does not create frequent HTTP writes.
+The current implementation follows this shape for the core path: it saves
+locally after the editor debounce, runs a periodic dirty flush every 15 s, sends
+manual saves immediately, and prevents concurrent sync requests for the same
+note. It still needs explicit app-close, note-switch and foreground/background
+flush hooks.
 
 ## Cross-Device Expectations
 
@@ -106,8 +107,10 @@ Conflict handling rules:
   paths.
 - A conflict must never delete either body of text.
 
-The next server-side hardening step is to expose a durable Diario draft
-revision, generation, or ETag and require clients to push with a base revision.
+Diario exposes a durable draft `remoteRevision`. Continuum stores it locally as
+`remoteVersion`, fetches it before push, and sends it back as
+`baseRemoteRevision`. If Diario responds with `409 conflict`, Continuum records
+a remote conflict instead of marking the note as a generic sync error.
 
 ## Fly Operating Assumption
 

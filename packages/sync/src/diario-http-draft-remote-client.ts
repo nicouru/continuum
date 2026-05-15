@@ -34,19 +34,26 @@ export type DiarioDraftHttpRemoteClientOptions = {
   timeoutSeconds?: number
 }
 
+type AdminApiSuccessData = {
+  action?: "created" | "updated"
+  note?: {
+    id?: string
+    slug?: string
+    status?: string
+    title?: string
+    writtenAt?: string
+  }
+  remoteVersion?: number
+  sync?: {
+    remoteRevision?: number
+    remoteVersion?: number
+    updatedAt?: string | null
+  }
+}
+
 type AdminApiEnvelope =
   | {
-      data?: {
-        action?: "created" | "updated"
-        note?: {
-          id?: string
-          slug?: string
-          status?: string
-          title?: string
-          writtenAt?: string
-        }
-        remoteVersion?: number
-      }
+      data?: AdminApiSuccessData
       ok?: true
     }
   | {
@@ -77,16 +84,39 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
       options.fetchImpl ?? (globalThis.fetch.bind(globalThis) as FetchLike)
   }
 
-  async fetchRemoteMeta(_noteId: string) {
-    // The current Diario admin TipTap endpoint does not expose a stable remote
-    // generation yet. Server-side auth/write checks still run on push; when the
-    // backend adds ETags/revisions, wire them here without changing SyncEngine.
-    return null
+  async fetchRemoteMeta(noteId: string) {
+    const response = await this.fetchImpl(
+      this.url(`${TIPTAP_DRAFT_PATH}?noteId=${encodeURIComponent(noteId)}`),
+      {
+        credentials: "include",
+        headers: this.headers(),
+        method: "GET",
+        timeout: this.timeoutSeconds,
+      },
+    )
+    const body = await readJsonOrText(response)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    if (!response.ok) {
+      throw createRemoteError(response.status, body)
+    }
+
+    const envelope = body as AdminApiEnvelope
+    const data = "data" in envelope ? envelope.data : undefined
+    const remoteVersion = getRemoteVersionFromData(data)
+
+    return typeof remoteVersion === "number" ? { remoteVersion } : null
   }
 
   async pushDraft(payload: DraftPushPayload): Promise<DraftPushResult> {
     const response = await this.fetchImpl(this.url(TIPTAP_DRAFT_PATH), {
-      body: JSON.stringify({ draft: payload.structuredDraft }),
+      body: JSON.stringify({
+        baseRemoteRevision: payload.remoteVersion,
+        draft: payload.structuredDraft,
+      }),
       credentials: "include",
       headers: this.headers(),
       method: "POST",
@@ -100,10 +130,7 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
 
     const envelope = body as AdminApiEnvelope
     const data = "data" in envelope ? envelope.data : undefined
-    const remoteVersion =
-      typeof data?.remoteVersion === "number"
-        ? data.remoteVersion
-        : payload.remoteVersion + 1
+    const remoteVersion = getRemoteVersionFromData(data) ?? payload.remoteVersion + 1
     const etag = response.headers.get("etag") ?? undefined
 
     return {
@@ -148,6 +175,22 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
   private url(path: string) {
     return new URL(path, this.baseUrl).toString()
   }
+}
+
+function getRemoteVersionFromData(data: AdminApiSuccessData | undefined) {
+  if (typeof data?.sync?.remoteRevision === "number") {
+    return data.sync.remoteRevision
+  }
+
+  if (typeof data?.sync?.remoteVersion === "number") {
+    return data.sync.remoteVersion
+  }
+
+  if (typeof data?.remoteVersion === "number") {
+    return data.remoteVersion
+  }
+
+  return undefined
 }
 
 async function readJsonOrText(response: Awaited<ReturnType<FetchLike>>) {

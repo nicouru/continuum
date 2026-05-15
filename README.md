@@ -21,15 +21,15 @@ Implemented:
 - Local autosave and manual draft save.
 - Emergency current-note draft file.
 - Trash and restore.
-- Mock draft sync engine.
+- Mock draft sync engine and Diario HTTP draft sync client.
+- Remote revision checks for Diario draft pushes.
 - Structured note validation/conversion tests.
 
 Mocked or deferred:
 
-- Real Diario HTTP draft sync.
 - Publishing/update/unpublish commands.
 - Search UI and SQLite FTS5 migrations.
-- Conflict resolution UI.
+- Conflict resolution UI beyond detecting and recording remote conflicts.
 - Full visual parity audit against Diario edge cases.
 - Production app icon/branding pass.
 
@@ -163,17 +163,18 @@ The current Diario endpoint is:
 
 ```txt
 POST /api/admin/v1/tiptap-draft
-body: { "draft": StructuredNoteDraft }
+body: { "draft": StructuredNoteDraft, "baseRemoteRevision": number }
 ```
 
 The app sends that request through the Tauri HTTP plugin and falls back to the
 mock remote when no base URL is configured. Current Diario admin writes require
 the web backend to be configured for local SQLite writes and admin write mode.
 
-The current backend does not expose a stable remote generation/ETag for
-`tiptap-draft`, so Continuum increments its local `remoteVersion` after a
-successful HTTP push. When Diario exposes revisions or ETags, wire them into
-`DiarioDraftHttpRemoteClient.fetchRemoteMeta`.
+Continuum also reads the Diario draft metadata through
+`GET /api/admin/v1/tiptap-draft?noteId=<id>` and stores the returned
+`remoteRevision` locally as `remoteVersion`. A `409 conflict` response means the
+server moved forward from another client and the local note is marked as a sync
+conflict instead of being overwritten.
 
 Never commit real admin cookies or secrets. The app must never connect directly
 to the production database.
@@ -181,8 +182,7 @@ to the production database.
 ## Next Review Items
 
 - Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
-- Add real remote revision/ETag checks once the Diario endpoint exposes them.
-- Add conflict UI for keep-local / keep-remote.
+- Add conflict UI for keep-local / keep-remote / duplicate.
 - Add SQLite FTS5 migrations after the search model is ready.
 - Code-split TipTap/KaTeX vendor chunks.
 - Exercise the app through `pnpm tauri:dev` on macOS with real writing sessions.

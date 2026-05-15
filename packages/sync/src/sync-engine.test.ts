@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { normalizeStructuredNoteDraft } from "@continuum/core"
 import { DraftSyncEngine, type SyncAdapterNote } from "./sync-engine"
-import type { DraftRemoteClient } from "./types"
+import { DraftRemoteError, type DraftRemoteClient } from "./types"
 
 function note(): SyncAdapterNote {
   return {
@@ -52,5 +52,42 @@ describe("DraftSyncEngine", () => {
 
     expect(states).toEqual(["syncing", "error"])
     expect(errors).toHaveLength(1)
+  })
+
+  it("surfaces server revision conflicts without marking generic error", async () => {
+    const states: string[] = []
+    const conflicts: unknown[] = []
+    const errors: unknown[] = []
+    const client: DraftRemoteClient = {
+      fetchRemoteMeta: async () => null,
+      pushDraft: async () => {
+        throw new DraftRemoteError("remote conflict", {
+          code: "conflict",
+          status: 409,
+        })
+      },
+    }
+    const engine = new DraftSyncEngine({
+      applyRemoteSuccess: async () => undefined,
+      client,
+      isOffline: () => false,
+      loadNote: async () => note(),
+      markState: async (_noteId, state) => {
+        states.push(state)
+      },
+      onConflict: async (_noteId, error) => {
+        conflicts.push(error)
+      },
+      onError: async (_noteId, error) => {
+        errors.push(error)
+      },
+      pollDirtyIds: async () => ["note-1"],
+    })
+
+    await engine.syncNote("note-1")
+
+    expect(states).toEqual(["syncing"])
+    expect(conflicts).toHaveLength(1)
+    expect(errors).toHaveLength(0)
   })
 })

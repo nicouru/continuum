@@ -227,7 +227,7 @@ export default function App() {
           )
         },
       },
-      { intervalMs: 8000 },
+      { intervalMs: 15000 },
     )
     engine.start()
     engineRef.current = engine
@@ -276,7 +276,6 @@ export default function App() {
         )
       } else {
         setSyncLabel(offline ? "Sin conexión" : "Guardado")
-        void engineRef.current?.syncNote(selectedId)
         await clearEmergencyDraft()
       }
       const shouldSnapshot = options.manual || saved.localVersion % 2 === 0

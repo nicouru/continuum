@@ -1,4 +1,4 @@
-import type { DraftRemoteClient } from "./types"
+import { DraftRemoteError, type DraftRemoteClient } from "./types"
 import type { NoteSyncState } from "@continuum/storage/types"
 import { shouldFlagSyncConflict } from "./conflict"
 
@@ -28,6 +28,7 @@ export type SyncEngineDeps = {
 }
 
 export class DraftSyncEngine {
+  private readonly inFlight = new Set<string>()
   private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(
@@ -65,6 +66,20 @@ export class DraftSyncEngine {
   }
 
   async syncNote(noteId: string) {
+    if (this.inFlight.has(noteId)) {
+      return
+    }
+
+    this.inFlight.add(noteId)
+
+    try {
+      await this.syncNoteOnce(noteId)
+    } finally {
+      this.inFlight.delete(noteId)
+    }
+  }
+
+  private async syncNoteOnce(noteId: string) {
     if (this.deps.isOffline()) {
       await this.deps.markState(noteId, "offline")
       return
@@ -106,8 +121,20 @@ export class DraftSyncEngine {
       })
       await this.deps.applyRemoteSuccess(note.id, result.remoteVersion)
     } catch (error) {
+      if (isRemoteConflict(error)) {
+        await this.deps.onConflict(noteId, error)
+        return
+      }
+
       await this.deps.markState(noteId, "error")
       await this.deps.onError?.(noteId, error)
     }
   }
+}
+
+function isRemoteConflict(error: unknown) {
+  return (
+    error instanceof DraftRemoteError &&
+    (error.details.code === "conflict" || error.details.status === 409)
+  )
 }

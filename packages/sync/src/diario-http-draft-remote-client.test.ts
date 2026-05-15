@@ -40,6 +40,9 @@ describe("DiarioDraftHttpRemoteClient", () => {
               title: "Title",
               writtenAt: "2026-05-15",
             },
+            sync: {
+              remoteRevision: 12,
+            },
           },
           ok: true,
         }),
@@ -79,6 +82,7 @@ describe("DiarioDraftHttpRemoteClient", () => {
       referer: "https://diario.example/",
     })
     expect(JSON.parse(calls[0]?.init?.body ?? "{}")).toMatchObject({
+      baseRemoteRevision: 11,
       draft: { id: "note-1" },
     })
     expect(result).toMatchObject({
@@ -86,6 +90,66 @@ describe("DiarioDraftHttpRemoteClient", () => {
       etag: "rev-12",
       remoteVersion: 12,
     })
+  })
+
+  it("fetches Diario remote draft metadata", async () => {
+    const calls: Array<{ init: Parameters<FetchLike>[1]; url: string }> = []
+    const fetchImpl: FetchLike = async (url, init) => {
+      calls.push({ init, url })
+      return {
+        headers: { get: () => null },
+        json: async () => ({
+          data: {
+            sync: {
+              remoteRevision: 7,
+              updatedAt: "2026-05-15T12:00:00.000Z",
+            },
+          },
+          ok: true,
+        }),
+        ok: true,
+        status: 200,
+        text: async () => "",
+      }
+    }
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+    })
+
+    await expect(client.fetchRemoteMeta("note 1")).resolves.toEqual({
+      remoteVersion: 7,
+    })
+    expect(calls[0]?.url).toBe(
+      "https://diario.example/api/admin/v1/tiptap-draft?noteId=note%201",
+    )
+    expect(calls[0]?.init).toMatchObject({
+      credentials: "include",
+      method: "GET",
+      timeout: 30,
+    })
+  })
+
+  it("treats missing remote draft metadata as a new remote note", async () => {
+    const fetchImpl: FetchLike = async () => ({
+      headers: { get: () => null },
+      json: async () => ({
+        error: {
+          code: "not_found",
+          message: "No encontrada.",
+        },
+        ok: false,
+      }),
+      ok: false,
+      status: 404,
+      text: async () => "",
+    })
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+    })
+
+    await expect(client.fetchRemoteMeta("note-1")).resolves.toBeNull()
   })
 
   it("surfaces Diario admin API errors", async () => {
