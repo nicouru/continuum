@@ -6,3 +6,5 @@ dist
 apps/mac/src-tauri/target
 .env
 .env.*
+!.env.example
+!apps/mac/.env.example

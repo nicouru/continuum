@@ -17,6 +17,7 @@
     "@continuum/sync": "workspace:*",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-sql": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.4.3",
     "@tiptap/core": "^3.23.4",

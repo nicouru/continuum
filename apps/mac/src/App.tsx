@@ -17,7 +17,7 @@ import {
   type ContinuumEditorPayload,
 } from "@continuum/editor"
 import type { NoteFull, NoteMeta } from "@continuum/storage/types"
-import { DraftSyncEngine, MockDraftRemoteClient } from "@continuum/sync"
+import { DraftSyncEngine } from "@continuum/sync"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { openContinuumRepository } from "./bootstrap-db"
 import {
@@ -27,6 +27,7 @@ import {
 } from "./emergency-draft"
 import type { AsyncSqlNoteRepository } from "./note-repository/async-sql-note-repository"
 import { readPreferences, writePreferences } from "./preferences"
+import { createContinuumSyncClient } from "./sync-client"
 import "./App.css"
 
 export default function App() {
@@ -55,7 +56,7 @@ export default function App() {
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedId
 
-  const remote = useMemo(() => new MockDraftRemoteClient(), [])
+  const remote = useMemo(() => createContinuumSyncClient(), [])
   const engineRef = useRef<DraftSyncEngine | null>(null)
 
   const refreshList = useCallback(async () => {
@@ -187,7 +188,7 @@ export default function App() {
     }
     const engine = new DraftSyncEngine(
       {
-        client: remote,
+        client: remote.client,
         isOffline: () => offlineRef.current,
         pollDirtyIds: () => repo.listDirtyIds(),
         loadNote: async (id) => {
@@ -219,6 +220,11 @@ export default function App() {
           const local = await repo.getNoteById(noteId)
           await repo.recordConflict(noteId, local, { remoteAhead: true })
           setSyncLabel("Conflicto remoto")
+        },
+        onError: async () => {
+          setSyncLabel(
+            remote.mode === "http" ? "Error sync Diario" : "Error sync mock",
+          )
         },
       },
       { intervalMs: 8000 },
@@ -261,7 +267,13 @@ export default function App() {
         setSyncLabel(offline ? "Borrador local" : "Sincronizando…")
         await engineRef.current?.syncNote(selectedId)
         await clearEmergencyDraft()
-        setSyncLabel(offline ? "Sin conexión" : "Sincronizado (mock)")
+        setSyncLabel(
+          offline
+            ? "Sin conexión"
+            : remote.mode === "http"
+              ? "Sincronizado online"
+              : "Sincronizado (mock)",
+        )
       } else {
         setSyncLabel(offline ? "Sin conexión" : "Guardado")
         void engineRef.current?.syncNote(selectedId)
@@ -602,6 +614,9 @@ export default function App() {
             </button>
             <span className="continuum-sync-pill" title={syncLabel}>
               {syncLabel}
+            </span>
+            <span className="continuum-sync-source" title={`Sync: ${remote.label}`}>
+              {remote.mode === "http" ? "Diario" : "Mock"}
             </span>
           </div>
         </header>

@@ -136,15 +136,47 @@ temporary recovery layer for the active note.
 
 Save and autosave always mean draft. They never publish.
 
-The current sync client is mocked. The `packages/sync` boundary should be
-replaced with a real Diario admin draft client that uses authentication and
-server revision/ETag checks. The app must never connect directly to the
-production database.
+Continuum uses a mock remote by default so local writing works without a Diario
+backend.
+
+To try real Diario admin draft sync, create `apps/mac/.env` from
+`apps/mac/.env.example`:
+
+```bash
+cd apps/mac
+cp .env.example .env
+```
+
+Then set:
+
+```env
+VITE_DIARIO_ADMIN_BASE_URL=http://localhost:3000
+VITE_DIARIO_ADMIN_SESSION_COOKIE=diario_admin_session=...
+```
+
+The current Diario endpoint is:
+
+```txt
+POST /api/admin/v1/tiptap-draft
+body: { "draft": StructuredNoteDraft }
+```
+
+The app sends that request through the Tauri HTTP plugin and falls back to the
+mock remote when no base URL is configured. Current Diario admin writes require
+the web backend to be configured for local SQLite writes and admin write mode.
+
+The current backend does not expose a stable remote generation/ETag for
+`tiptap-draft`, so Continuum increments its local `remoteVersion` after a
+successful HTTP push. When Diario exposes revisions or ETags, wire them into
+`DiarioDraftHttpRemoteClient.fetchRemoteMeta`.
+
+Never commit real admin cookies or secrets. The app must never connect directly
+to the production database.
 
 ## Next Review Items
 
 - Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
-- Implement real HTTP draft sync against the Diario admin endpoints.
+- Add real remote revision/ETag checks once the Diario endpoint exposes them.
 - Add conflict UI for keep-local / keep-remote.
 - Add SQLite FTS5 migrations after the search model is ready.
 - Code-split TipTap/KaTeX vendor chunks.

@@ -11,11 +11,33 @@ export type DraftPushPayload = {
 }
 
 export type DraftPushResult = {
+  action?: "created" | "updated"
   remoteVersion: number
   etag?: string
+  note?: {
+    id: string
+    slug: string
+    status: string
+    title: string
+    writtenAt: string
+  }
 }
 
 export interface DraftRemoteClient {
   fetchRemoteMeta(noteId: string): Promise<{ remoteVersion: number } | null>
   pushDraft(payload: DraftPushPayload): Promise<DraftPushResult>
+}
+
+export class DraftRemoteError extends Error {
+  constructor(
+    message: string,
+    readonly details: {
+      code?: string
+      status?: number
+      body?: unknown
+    } = {},
+  ) {
+    super(message)
+    this.name = "DraftRemoteError"
+  }
 }

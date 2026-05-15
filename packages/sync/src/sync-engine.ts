@@ -23,6 +23,7 @@ export type SyncEngineDeps = {
   ) => Promise<void>
   markState: (noteId: string, state: string) => Promise<void>
   onConflict: (noteId: string, error: unknown) => Promise<void>
+  onError?: (noteId: string, error: unknown) => Promise<void> | void
   isOffline: () => boolean
 }
 
@@ -78,21 +79,21 @@ export class DraftSyncEngine {
       return
     }
 
-    const remote = await this.deps.client.fetchRemoteMeta(noteId)
-    const serverRemoteVersion = remote?.remoteVersion ?? note.remoteVersion
-
-    if (
-      shouldFlagSyncConflict({
-        serverRemoteVersion,
-        storedRemoteVersion: note.remoteVersion,
-        syncState: note.syncState as NoteSyncState,
-      })
-    ) {
-      await this.deps.onConflict(noteId, new Error("REMOTE_AHEAD"))
-      return
-    }
-
     try {
+      const remote = await this.deps.client.fetchRemoteMeta(noteId)
+      const serverRemoteVersion = remote?.remoteVersion ?? note.remoteVersion
+
+      if (
+        shouldFlagSyncConflict({
+          serverRemoteVersion,
+          storedRemoteVersion: note.remoteVersion,
+          syncState: note.syncState as NoteSyncState,
+        })
+      ) {
+        await this.deps.onConflict(noteId, new Error("REMOTE_AHEAD"))
+        return
+      }
+
       await this.deps.markState(noteId, "syncing")
       const result = await this.deps.client.pushDraft({
         deviceId: note.deviceId,
@@ -104,8 +105,9 @@ export class DraftSyncEngine {
         tiptapJson: note.tiptapJson,
       })
       await this.deps.applyRemoteSuccess(note.id, result.remoteVersion)
-    } catch (_error) {
+    } catch (error) {
       await this.deps.markState(noteId, "error")
+      await this.deps.onError?.(noteId, error)
     }
   }
 }

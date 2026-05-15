@@ -226,6 +226,13 @@
   text-overflow: ellipsis;
 }
 
+.continuum-sync-source {
+  min-width: 42px;
+  color: #6f7b91;
+  font-size: 11px;
+  text-align: right;
+}
+
 .continuum-editor-root {
   flex: 1;
   display: flex;
