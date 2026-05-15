@@ -43,7 +43,7 @@ packages/
   editor/           TipTap extensions, actions, conversions, editor component
   storage/          SQLite schema, repositories, revisions, emergency helpers
   sync/             Sync states, mock remote client, conflict detection
-docs/               Reserved for architecture notes
+docs/               Architecture and product notes
 ```
 
 ## Source Reference
@@ -133,6 +133,11 @@ Tauri Store is only for small UI preferences. The emergency draft file is only a
 temporary recovery layer for the active note.
 
 ## Sync
+
+Architecture note: see
+[`docs/sync-architecture.md`](docs/sync-architecture.md) for the source-of-truth
+model, cross-device sync expectations, save timing, conflict policy, and Fly
+operating assumptions.
 
 Save and autosave always mean draft. They never publish.
 
