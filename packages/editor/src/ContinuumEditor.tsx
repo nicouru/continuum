@@ -63,6 +63,25 @@ export function ContinuumEditor({
     onPayloadRef.current = onPayload
   }, [onPayload])
 
+  const emitCurrentPayload = (instance: Editor) => {
+    const nextJson = instance.getJSON() as TipTapJsonNode
+    const mergedSource = normalizeStructuredNoteDraft({
+      ...sourceDraftRef.current,
+      title: titleRef.current,
+      writtenAt: writtenAtRef.current,
+    })
+    const nextDraft = normalizeStructuredNoteDraft(
+      createStructuredDraftFromTipTapPrototypeDocument({
+        sourceDraft: mergedSource,
+        tiptap: nextJson,
+      }),
+    )
+    onPayloadRef.current?.({
+      structuredDraft: nextDraft,
+      tiptapJson: nextJson,
+    })
+  }
+
   const editor = useEditor({
     content: initialPrototype.tiptap,
     editable: true,
@@ -105,22 +124,7 @@ export function ContinuumEditor({
     ],
     immediatelyRender: false,
     onUpdate: ({ editor: instance }) => {
-      const nextJson = instance.getJSON() as TipTapJsonNode
-      const mergedSource = normalizeStructuredNoteDraft({
-        ...sourceDraftRef.current,
-        title: titleRef.current,
-        writtenAt: writtenAtRef.current,
-      })
-      const nextDraft = normalizeStructuredNoteDraft(
-        createStructuredDraftFromTipTapPrototypeDocument({
-          sourceDraft: mergedSource,
-          tiptap: nextJson,
-        }),
-      )
-      onPayloadRef.current?.({
-        structuredDraft: nextDraft,
-        tiptapJson: nextJson,
-      })
+      emitCurrentPayload(instance)
       queueMicrotask(() => normalizeEditorIdentity(instance))
     },
   })
@@ -129,13 +133,26 @@ export function ContinuumEditor({
     onReady?.(editor ?? null)
   }, [editor, onReady])
 
+  const loadedNoteIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (!editor) {
       return
     }
-    editor.commands.setContent(initialPrototype.tiptap)
+    if (loadedNoteIdRef.current === noteId) {
+      return
+    }
+    loadedNoteIdRef.current = noteId
+    editor.commands.setContent(initialPrototype.tiptap, { emitUpdate: false })
     queueMicrotask(() => normalizeEditorIdentity(editor))
+    queueMicrotask(() => emitCurrentPayload(editor))
   }, [noteId, editor, initialPrototype])
+
+  useEffect(() => {
+    if (!editor) {
+      return
+    }
+    emitCurrentPayload(editor)
+  }, [editor, title, writtenAt])
 
   return (
     <div className="continuum-editor-root">

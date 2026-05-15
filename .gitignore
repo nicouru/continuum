@@ -1,6 +1,7 @@
 node_modules
 dist
 .DS_Store
+.serena/
 *.log
 apps/mac/src-tauri/target
 .env
