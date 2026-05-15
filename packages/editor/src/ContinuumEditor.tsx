@@ -1,7 +1,6 @@
 import type { Editor } from "@tiptap/core"
 import Placeholder from "@tiptap/extension-placeholder"
 import type { StructuredNoteDraft } from "@continuum/core"
-import { normalizeStructuredNoteDraft } from "@continuum/core"
 import { EditorContent, useEditor } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import { useEffect, useRef } from "react"
@@ -65,17 +64,15 @@ export function ContinuumEditor({
 
   const emitCurrentPayload = (instance: Editor) => {
     const nextJson = instance.getJSON() as TipTapJsonNode
-    const mergedSource = normalizeStructuredNoteDraft({
+    const mergedSource = {
       ...sourceDraftRef.current,
       title: titleRef.current,
       writtenAt: writtenAtRef.current,
+    }
+    const nextDraft = createStructuredDraftFromTipTapPrototypeDocument({
+      sourceDraft: mergedSource,
+      tiptap: nextJson,
     })
-    const nextDraft = normalizeStructuredNoteDraft(
-      createStructuredDraftFromTipTapPrototypeDocument({
-        sourceDraft: mergedSource,
-        tiptap: nextJson,
-      }),
-    )
     onPayloadRef.current?.({
       structuredDraft: nextDraft,
       tiptapJson: nextJson,
