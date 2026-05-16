@@ -1,12 +1,11 @@
 # Editor context menu
 
-Temporary interaction rule:
+Interaction rule:
 
-- Right click on the editor keeps the native macOS/WebKit context menu available.
-- `Command+9` opens the Continuum editor menu.
+- Right click on the editor opens the Continuum editor menu.
+- The native macOS/WebKit context menu is suppressed inside the TipTap editor.
+- `Command+9` also opens the Continuum editor menu.
 
-This is intentional for now. The native Apple menu is useful while we decide which
-system functions are worth recreating inside Continuum with TipTap-safe commands.
-Anything that changes editor content permanently should eventually move through
-Continuum actions, so citations, references, segments, aphorisms and inline math
-stay inside the structured draft model.
+Anything that changes editor content permanently should move through Continuum
+actions, so citations, references, segments, aphorisms and inline math stay inside
+the structured draft model.

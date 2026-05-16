@@ -427,6 +427,14 @@ export default function App() {
     setEditorMenu((current) => ({ ...current, isOpen: false }))
   }, [])
 
+  const handleEditorContextMenu = useCallback(
+    (event: MouseEvent) => {
+      event.preventDefault()
+      openEditorMenuAt(event.clientX, event.clientY)
+    },
+    [openEditorMenuAt],
+  )
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && editorMenu.isOpen) {
@@ -1712,6 +1720,7 @@ export default function App() {
           initialPrototype={prototype}
           noteId={fullNote.id}
           onPayload={handleEditorPayload}
+          onEditorContextMenu={handleEditorContextMenu}
           onReady={(editor) => {
             editorRef.current = editor
             setEditor(editor)

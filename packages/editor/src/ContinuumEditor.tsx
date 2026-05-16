@@ -29,6 +29,7 @@ export type ContinuumEditorProps = {
   onTitleChange: (value: string) => void
   onWrittenAtChange: (value: string) => void
   onPayload: (payload: ContinuumEditorPayload) => void
+  onEditorContextMenu?: (event: MouseEvent) => void
   onReady?: (editor: Editor | null) => void
   showMetadataControls?: boolean
 }
@@ -42,6 +43,7 @@ export function ContinuumEditor({
   onTitleChange,
   onWrittenAtChange,
   onPayload,
+  onEditorContextMenu,
   onReady,
   showMetadataControls = true,
 }: ContinuumEditorProps) {
@@ -99,6 +101,10 @@ export function ContinuumEditor({
           event.clipboardData.setData("text/plain", plainText)
           event.preventDefault()
           return true
+        },
+        contextmenu: (_view, event) => {
+          onEditorContextMenu?.(event)
+          return Boolean(onEditorContextMenu)
         },
         drop: (_view, event) => {
           if (!shouldBlockTipTapMediaTransfer(event.dataTransfer)) {
