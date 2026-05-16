@@ -372,6 +372,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
     applyRemoteSynced(input: {
       noteId: string
       remoteVersion: number
+      status?: NoteDbStatus
       structuredDraft?: StructuredNoteDraft
       tiptapJson?: unknown
     }) {
@@ -389,6 +390,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         `
         UPDATE notes SET
           remote_version = ?,
+          status = ?,
           last_synced_at = ?,
           sync_state = 'synced',
           title = ?,
@@ -402,6 +404,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       `,
       ).run(
         input.remoteVersion,
+        input.status ?? note.status,
         nowIso(),
         draft.title,
         draft.writtenAt || note.writtenAt,

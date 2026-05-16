@@ -39,6 +39,10 @@ export class MockDraftRemoteClient implements DraftRemoteClient {
     return []
   }
 
+  async publishNote() {
+    return { persisted: true as const, status: "published" as const }
+  }
+
   async pushDraft(payload: DraftPushPayload): Promise<DraftPushResult> {
     const previous = this.versions.get(payload.noteId) ?? 0
 
@@ -51,6 +55,10 @@ export class MockDraftRemoteClient implements DraftRemoteClient {
     this.payloads.set(payload.noteId, payload)
 
     return { remoteVersion: next, etag: `mock-${next}` }
+  }
+
+  async unpublishNote() {
+    return { persisted: true as const, status: "draft" as const }
   }
 
   peek(noteId: string) {

@@ -85,6 +85,7 @@ type AdminApiEnvelope =
 const TIPTAP_DRAFT_PATH = "/api/admin/v1/tiptap-draft"
 const TIPTAP_DRAFTS_PATH = "/api/admin/v1/tiptap-drafts"
 const NOTES_PATH = "/api/admin/v1/notes"
+const COMMANDS_PATH = "/api/admin/v1/commands"
 
 export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
   private readonly baseUrl: URL
@@ -226,6 +227,47 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
     }
   }
 
+  async publishNote(noteId: string) {
+    return this.runLifecycleCommand(noteId, "note:publish", "published")
+  }
+
+  async unpublishNote(noteId: string) {
+    return this.runLifecycleCommand(noteId, "note:unpublish", "draft")
+  }
+
+  private async runLifecycleCommand(
+    noteId: string,
+    type: "note:publish" | "note:unpublish",
+    fallbackStatus: "draft" | "published",
+  ) {
+    const response = await this.fetchImpl(this.url(COMMANDS_PATH), {
+      body: JSON.stringify({ command: { noteId, type } }),
+      credentials: "include",
+      headers: this.headers(),
+      method: "POST",
+      timeout: this.timeoutSeconds,
+    })
+    const body = await readJsonOrText(response)
+
+    if (!response.ok) {
+      throw createRemoteError(response.status, body)
+    }
+
+    const envelope = body as AdminApiEnvelope
+    const data: Record<string, unknown> | undefined =
+      "data" in envelope && isRecord(envelope.data)
+        ? (envelope.data as Record<string, unknown>)
+        : undefined
+    const execution = isRecord(data) && isRecord(data.execution) ? data.execution : undefined
+    const note = isRecord(data) && isRecord(data.note) ? data.note : undefined
+    const status = getString(note?.status) ?? fallbackStatus
+
+    return {
+      persisted: execution ? execution.persisted === true : response.status === 202,
+      status: isLifecycleStatus(status) ? status : fallbackStatus,
+    }
+  }
+
   private headers(): Record<string, string> {
     const headers: Record<string, string> = {
       accept: "application/json",
@@ -348,6 +390,17 @@ function getRemoteVersionFromData(data: AdminApiSuccessData | undefined) {
 
 function getString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : undefined
+}
+
+function isLifecycleStatus(
+  value: string,
+): value is "draft" | "published" | "archived" | "trashed" {
+  return (
+    value === "draft" ||
+    value === "published" ||
+    value === "archived" ||
+    value === "trashed"
+  )
 }
 
 async function readJsonOrText(response: Awaited<ReturnType<FetchLike>>) {

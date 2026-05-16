@@ -394,6 +394,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
     async applyRemoteSynced(input: {
       noteId: string
       remoteVersion: number
+      status?: NoteDbStatus
       structuredDraft?: StructuredNoteDraft
       tiptapJson?: unknown
     }): Promise<void> {
@@ -412,6 +413,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         dollarizeQuestionMarks(`
         UPDATE notes SET
           remote_version = ?,
+          status = ?,
           last_synced_at = ?,
           sync_state = 'synced',
           title = ?,
@@ -425,6 +427,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       `),
         [
           input.remoteVersion,
+          input.status ?? note.status,
           nowIso(),
           draft.title,
           draft.writtenAt || note.writtenAt,

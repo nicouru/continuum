@@ -201,6 +201,43 @@ describe("DiarioDraftHttpRemoteClient", () => {
     expect(result?.remoteVersion).toBe(0)
   })
 
+  it("posts Diario lifecycle publish commands", async () => {
+    const calls: Array<{ init: Parameters<FetchLike>[1]; url: string }> = []
+    const fetchImpl: FetchLike = async (url, init) => {
+      calls.push({ init, url })
+      return {
+        headers: { get: () => null },
+        json: async () => ({
+          data: {
+            execution: { persisted: true },
+            note: { id: "note-1", status: "published" },
+          },
+          ok: true,
+        }),
+        ok: true,
+        status: 202,
+        text: async () => "",
+      }
+    }
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+      sessionCookie: "diario_admin_session=abc",
+    })
+
+    const result = await client.publishNote("note-1")
+
+    expect(calls[0]?.url).toBe("https://diario.example/api/admin/v1/commands")
+    expect(calls[0]?.init).toMatchObject({
+      credentials: "include",
+      method: "POST",
+    })
+    expect(JSON.parse(calls[0]?.init?.body ?? "{}")).toEqual({
+      command: { noteId: "note-1", type: "note:publish" },
+    })
+    expect(result).toEqual({ persisted: true, status: "published" })
+  })
+
   it("fetches a remote draft payload by note id", async () => {
     const calls: string[] = []
     const fetchImpl: FetchLike = async (url) => {

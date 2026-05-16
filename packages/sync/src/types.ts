@@ -23,6 +23,11 @@ export type DraftPushResult = {
   }
 }
 
+export type RemoteLifecycleResult = {
+  persisted: boolean
+  status?: "draft" | "published" | "archived" | "trashed"
+}
+
 export type RemoteDraft = {
   noteId: string
   remoteVersion: number
@@ -37,7 +42,9 @@ export interface DraftRemoteClient {
   fetchRemoteDraft?(noteId: string): Promise<RemoteDraft | null>
   fetchRemoteMeta(noteId: string): Promise<{ remoteVersion: number } | null>
   listRemoteDrafts?(): Promise<RemoteDraft[]>
+  publishNote?(noteId: string): Promise<RemoteLifecycleResult>
   pushDraft(payload: DraftPushPayload): Promise<DraftPushResult>
+  unpublishNote?(noteId: string): Promise<RemoteLifecycleResult>
 }
 
 export class DraftRemoteError extends Error {

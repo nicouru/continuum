@@ -27,6 +27,7 @@ type ContinuumEditorMenuProps = {
   canCreateInlineMath: boolean
   canCreateReferenceInsert: boolean
   canModifyAphorism: boolean
+  canPublish: boolean
   canRetrySync: boolean
   creatingReference?: boolean
   filteredReferences: readonly StructuredNoteDraftReference[]
@@ -49,6 +50,7 @@ type ContinuumEditorMenuProps = {
   onJoinPreviousAphorism: () => void
   onManualSave: () => void
   onMarkAllParagraphsAsAphorisms: () => void
+  onPublishToggle: () => void
   onReferenceSearchChange: (value: string) => void
   onRemoveCitation: () => void
   onRestore: () => void
@@ -60,6 +62,7 @@ type ContinuumEditorMenuProps = {
   onUnmarkAphorism: () => void
   onTitleChange: (value: string) => void
   onWrittenAtChange: (value: string) => void
+  publishLabel: string
   referenceSearch: string
   remoteLabel: string
   remoteMode: "http" | "mock"
@@ -83,6 +86,7 @@ export function ContinuumEditorMenu({
   canCreateInlineMath,
   canCreateReferenceInsert,
   canModifyAphorism,
+  canPublish,
   canRetrySync,
   creatingReference = false,
   filteredReferences,
@@ -102,6 +106,7 @@ export function ContinuumEditorMenu({
   onJoinPreviousAphorism,
   onManualSave,
   onMarkAllParagraphsAsAphorisms,
+  onPublishToggle,
   onReferenceSearchChange,
   onRemoveCitation,
   onRestore,
@@ -113,6 +118,7 @@ export function ContinuumEditorMenu({
   onUnmarkAphorism,
   onTitleChange,
   onWrittenAtChange,
+  publishLabel,
   referenceSearch,
   remoteLabel,
   remoteMode,
@@ -339,6 +345,14 @@ export function ContinuumEditorMenu({
           <div className="continuum-menu-list">
             <MenuButton icon="S" onClick={onManualSave}>
               Guardar borrador
+            </MenuButton>
+            <MenuButton
+              disabled={!canPublish}
+              icon="↑"
+              onClick={onPublishToggle}
+              title={canPublish ? undefined : "Sincroniza online antes de publicar."}
+            >
+              {publishLabel}
             </MenuButton>
             {folder === "all" ? (
               <MenuButton icon="X" onClick={onTrash}>

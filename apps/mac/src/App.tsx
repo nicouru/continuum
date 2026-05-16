@@ -348,6 +348,14 @@ export default function App() {
   const canCreateReferenceInsert = Boolean(editor && hasSelection)
   const canCreateInlineMath = Boolean(editor && hasSelection)
   const canModifyAphorism = Boolean(editor && activeBlock?.aphorismId)
+  const isPublished = fullNote?.status === "published"
+  const canPublish = Boolean(
+    fullNote &&
+      folder === "all" &&
+      !syncBusy &&
+      !offline &&
+      (isPublished ? remote.client.unpublishNote : remote.client.publishNote),
+  )
 
   const refreshList = useCallback(async () => {
     if (!repo) {
@@ -922,6 +930,58 @@ export default function App() {
     }
   }
 
+  const handlePublishToggle = async () => {
+    if (!repo || !selectedId || !fullNote || syncBusy || offline) {
+      return
+    }
+    const action = isPublished ? remote.client.unpublishNote : remote.client.publishNote
+    if (!action) {
+      setSyncLabel("Publicacion no disponible")
+      return
+    }
+
+    setSyncBusy(true)
+    setSyncLabel(isPublished ? "Volviendo a borrador..." : "Publicando...")
+    try {
+      await flushPendingAutosave()
+      const syncResult = await engineRef.current?.syncNote(selectedId)
+      if (syncResult?.status === "conflict") {
+        setSyncLabel("Conflicto remoto")
+        return
+      }
+      if (syncResult?.status === "error") {
+        setSyncLabel("Pendiente de reintento")
+        return
+      }
+      if (syncResult?.status === "offline") {
+        setSyncLabel("Sin conexion")
+        return
+      }
+
+      const lifecycle = await action.call(remote.client, selectedId)
+      if (!lifecycle.persisted) {
+        setSyncLabel("Diario no persistio el cambio")
+        return
+      }
+
+      const remoteMeta = await remote.client.fetchRemoteMeta(selectedId)
+      await repo.applyRemoteSynced({
+        noteId: selectedId,
+        remoteVersion: remoteMeta?.remoteVersion ?? fullNote.remoteVersion,
+        status: lifecycle.status ?? (isPublished ? "draft" : "published"),
+      })
+      const next = await repo.getNoteById(selectedId)
+      setFullNote(next)
+      await refreshList()
+      await refreshSyncStatus()
+      setSyncLabel(isPublished ? "Borrador online" : "Publicado online")
+    } catch {
+      setSyncLabel(isPublished ? "Error al despublicar" : "Error al publicar")
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
   const handleKeepLocalConflict = async () => {
     if (!repo || !selectedId || !fullNote || syncBusy) {
       return
@@ -1366,6 +1426,7 @@ export default function App() {
           canCreateInlineMath={canCreateInlineMath}
           canCreateReferenceInsert={canCreateReferenceInsert}
           canModifyAphorism={canModifyAphorism}
+          canPublish={canPublish}
           canRetrySync={Boolean(syncStatus?.pendingCount)}
           creatingReference={creatingReference}
           filteredReferences={filteredReferences}
@@ -1406,6 +1467,7 @@ export default function App() {
           onCreateReferenceInsert={() => convertSelectionToReferenceInsert(editorRef.current)}
           onLogout={handleLogout}
           onManualSave={handleManualSave}
+          onPublishToggle={handlePublishToggle}
           onReferenceSearchChange={setReferenceSearch}
           onRemoveCitation={() => removeCitationFromSelection(editorRef.current)}
           onRestore={handleRestore}
@@ -1427,6 +1489,7 @@ export default function App() {
           }
           onTitleChange={setTitle}
           onWrittenAtChange={setWrittenAt}
+          publishLabel={isPublished ? "Volver a borrador" : "Publicar"}
           referenceSearch={referenceSearch}
           remoteLabel={remote.label}
           remoteMode={remote.mode}
