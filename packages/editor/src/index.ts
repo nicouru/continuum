@@ -55,6 +55,8 @@ export {
   markCurrentBlockAsAphorism,
   joinCurrentBlockToPreviousAphorism,
   markAllParagraphsAsAphorisms,
+  separateAphorismFromCurrentBlock,
+  unmarkCurrentBlockAsAphorism,
 } from "./aphorism-actions"
 export {
   ContinuumEditor,

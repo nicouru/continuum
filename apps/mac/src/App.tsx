@@ -17,13 +17,17 @@ import {
   convertMarkdownInlineMath,
   convertSelectionToReferenceInsert,
   filterReferences,
+  getActiveBlockDetails,
   getActiveCitationDetails,
   getActiveReferenceInsertDetails,
   getFirstInlineMathInSelection,
+  joinCurrentBlockToPreviousAphorism,
   makeId,
   markAllParagraphsAsAphorisms,
   markCurrentBlockAsAphorism,
   removeCitationFromSelection,
+  separateAphorismFromCurrentBlock,
+  unmarkCurrentBlockAsAphorism,
   type ContinuumEditorPayload,
   type TipTapJsonNode,
 } from "@continuum/editor"
@@ -303,6 +307,10 @@ export default function App() {
     () => (activeDraft ? getActiveReferenceInsertDetails(editor, activeDraft) : null),
     [activeDraft, editor, editorRevision],
   )
+  const activeBlock = useMemo(
+    () => (activeDraft ? getActiveBlockDetails(editor, activeDraft) : null),
+    [activeDraft, editor, editorRevision],
+  )
   const filteredReferences = useMemo(
     () => filterReferences(activeDraft?.references ?? [], referenceSearch),
     [activeDraft, referenceSearch],
@@ -312,6 +320,7 @@ export default function App() {
   const canCreateCitation = Boolean(editor && hasSelection && !selectionIncludesInlineMath)
   const canCreateReferenceInsert = Boolean(editor && hasSelection)
   const canCreateInlineMath = Boolean(editor && hasSelection)
+  const canModifyAphorism = Boolean(editor && activeBlock?.aphorismId)
 
   const refreshList = useCallback(async () => {
     if (!repo) {
@@ -1266,6 +1275,7 @@ export default function App() {
           canCreateCitation={canCreateCitation}
           canCreateInlineMath={canCreateInlineMath}
           canCreateReferenceInsert={canCreateReferenceInsert}
+          canModifyAphorism={canModifyAphorism}
           canRetrySync={Boolean(syncStatus?.pendingCount)}
           creatingReference={creatingReference}
           filteredReferences={filteredReferences}
@@ -1315,7 +1325,16 @@ export default function App() {
           onMarkAllParagraphsAsAphorisms={() =>
             markAllParagraphsAsAphorisms(editorRef.current)
           }
+          onJoinPreviousAphorism={() =>
+            joinCurrentBlockToPreviousAphorism(editorRef.current)
+          }
+          onSeparateAphorism={() =>
+            separateAphorismFromCurrentBlock(editorRef.current, setSyncLabel)
+          }
           onToggleAphorism={() => markCurrentBlockAsAphorism(editorRef.current)}
+          onUnmarkAphorism={() =>
+            unmarkCurrentBlockAsAphorism(editorRef.current, setSyncLabel)
+          }
           onTitleChange={setTitle}
           onWrittenAtChange={setWrittenAt}
           referenceSearch={referenceSearch}

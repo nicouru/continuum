@@ -24,6 +24,7 @@ type ContinuumEditorMenuProps = {
   canCreateCitation: boolean
   canCreateInlineMath: boolean
   canCreateReferenceInsert: boolean
+  canModifyAphorism: boolean
   canRetrySync: boolean
   creatingReference?: boolean
   filteredReferences: readonly StructuredNoteDraftReference[]
@@ -43,6 +44,7 @@ type ContinuumEditorMenuProps = {
   onConvertInlineMath: () => void
   onCreateReferenceInsert: () => void
   onLogout: () => void
+  onJoinPreviousAphorism: () => void
   onManualSave: () => void
   onMarkAllParagraphsAsAphorisms: () => void
   onReferenceSearchChange: (value: string) => void
@@ -50,8 +52,10 @@ type ContinuumEditorMenuProps = {
   onRestore: () => void
   onRetrySync: () => void
   onSetOffline: (value: boolean) => void
+  onSeparateAphorism: () => void
   onTrash: () => void
   onToggleAphorism: () => void
+  onUnmarkAphorism: () => void
   onTitleChange: (value: string) => void
   onWrittenAtChange: (value: string) => void
   referenceSearch: string
@@ -76,6 +80,7 @@ export function ContinuumEditorMenu({
   canCreateCitation,
   canCreateInlineMath,
   canCreateReferenceInsert,
+  canModifyAphorism,
   canRetrySync,
   creatingReference = false,
   filteredReferences,
@@ -92,6 +97,7 @@ export function ContinuumEditorMenu({
   onConvertInlineMath,
   onCreateReferenceInsert,
   onLogout,
+  onJoinPreviousAphorism,
   onManualSave,
   onMarkAllParagraphsAsAphorisms,
   onReferenceSearchChange,
@@ -99,8 +105,10 @@ export function ContinuumEditorMenu({
   onRestore,
   onRetrySync,
   onSetOffline,
+  onSeparateAphorism,
   onTrash,
   onToggleAphorism,
+  onUnmarkAphorism,
   onTitleChange,
   onWrittenAtChange,
   referenceSearch,
@@ -182,6 +190,33 @@ export function ContinuumEditorMenu({
             </MenuButton>
             <MenuButton icon="A*" onClick={onMarkAllParagraphsAsAphorisms}>
               Todos los parrafos
+            </MenuButton>
+            <MenuButton
+              disabled={!canModifyAphorism}
+              icon="A-"
+              onClick={onUnmarkAphorism}
+              title={
+                canModifyAphorism
+                  ? undefined
+                  : "Pon el cursor sobre un aforismo para quitarlo."
+              }
+            >
+              Quitar aforismo
+            </MenuButton>
+            <MenuButton icon="A↑" onClick={onJoinPreviousAphorism}>
+              Unir al anterior
+            </MenuButton>
+            <MenuButton
+              disabled={!canModifyAphorism}
+              icon="A↓"
+              onClick={onSeparateAphorism}
+              title={
+                canModifyAphorism
+                  ? undefined
+                  : "Pon el cursor sobre un aforismo para separarlo."
+              }
+            >
+              Separar desde parrafo
             </MenuButton>
             <MenuButton
               disabled={!canCreateCitation}
