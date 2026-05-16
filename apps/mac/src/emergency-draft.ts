@@ -1,12 +1,14 @@
 import {
   BaseDirectory,
   exists,
+  mkdir,
   readTextFile,
   remove,
   writeTextFile,
 } from "@tauri-apps/plugin-fs"
 import type { ContinuumEditorPayload } from "@continuum/editor"
 
+const RELATIVE_DIR = "continuum"
 const RELATIVE_PATH = "continuum/emergency-draft.json"
 
 export type EmergencyDraftFile = {
@@ -18,6 +20,10 @@ export type EmergencyDraftFile = {
 }
 
 export async function writeEmergencyDraft(payload: EmergencyDraftFile) {
+  await mkdir(RELATIVE_DIR, {
+    baseDir: BaseDirectory.AppLocalData,
+    recursive: true,
+  })
   await writeTextFile(RELATIVE_PATH, JSON.stringify(payload), {
     baseDir: BaseDirectory.AppLocalData,
   })

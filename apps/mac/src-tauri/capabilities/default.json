@@ -9,6 +9,8 @@
     "sql:allow-execute",
     "store:default",
     "fs:default",
+    "fs:allow-app-read-recursive",
+    "fs:allow-app-write-recursive",
     {
       "identifier": "http:default",
       "allow": [

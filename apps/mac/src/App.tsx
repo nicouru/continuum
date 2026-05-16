@@ -30,6 +30,25 @@ import { readPreferences, writePreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
 import "./App.css"
 
+function bootstrapErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+  if (typeof error === "string") {
+    return error
+  }
+  try {
+    const serialized = JSON.stringify(error)
+    if (serialized && serialized !== "{}") {
+      return serialized
+    }
+  } catch {
+    // Fall back to String(error) below.
+  }
+  const fallback = String(error)
+  return fallback === "[object Object]" ? "No se pudo abrir la base local." : fallback
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -85,9 +104,12 @@ export default function App() {
   useEffect(() => {
     let active = true
     void (async () => {
+      let step = "abrir repositorio local"
       try {
         const nextRepo = await openContinuumRepository()
+        step = "leer identidad del dispositivo"
         const devId = await nextRepo.ensureDeviceId()
+        step = "leer preferencias locales"
         const prefs = await readPreferences()
         if (!active) {
           return
@@ -95,6 +117,7 @@ export default function App() {
         setRepo(nextRepo)
         setDeviceId(devId)
         setSidebarVisible(prefs.sidebarVisible)
+        step = "leer biblioteca local"
         const list = await nextRepo.listNotesMeta({ folder: "all" })
         if (!active) {
           return
@@ -106,8 +129,10 @@ export default function App() {
             ? prefs.lastOpenedNoteId
             : list[0]?.id ?? null
         setSelectedId(initialId)
+        step = "leer borrador de emergencia"
         const emergency = await readEmergencyDraft()
         if (emergency && initialId && emergency.noteId === initialId) {
+          step = "comparar borrador de emergencia"
           const base = await nextRepo.getNoteById(initialId)
           if (
             base &&
@@ -139,9 +164,7 @@ export default function App() {
       } catch (error) {
         console.error(error)
         if (active) {
-          setBootstrapError(
-            error instanceof Error ? error.message : "No se pudo abrir la base local.",
-          )
+          setBootstrapError(`${step}: ${bootstrapErrorMessage(error)}`)
         }
       }
     })()
