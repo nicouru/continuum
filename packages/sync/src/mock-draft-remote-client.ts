@@ -1,4 +1,9 @@
-import type { DraftPushPayload, DraftPushResult, DraftRemoteClient } from "./types"
+import type {
+  DraftPushPayload,
+  DraftPushResult,
+  DraftRemoteClient,
+  RemoteDraft,
+} from "./types"
 
 /**
  * In-memory remote used until Diario draft endpoints are wired.
@@ -6,6 +11,24 @@ import type { DraftPushPayload, DraftPushResult, DraftRemoteClient } from "./typ
 export class MockDraftRemoteClient implements DraftRemoteClient {
   private readonly versions = new Map<string, number>()
   private readonly payloads = new Map<string, DraftPushPayload>()
+
+  async fetchRemoteDraft(noteId: string): Promise<RemoteDraft | null> {
+    const payload = this.payloads.get(noteId)
+    const remoteVersion = this.versions.get(noteId)
+
+    if (!payload || remoteVersion === undefined) {
+      return null
+    }
+
+    return {
+      noteId,
+      remoteVersion,
+      slug: payload.slug,
+      status: "draft",
+      structuredDraft: payload.structuredDraft,
+      tiptapJson: payload.tiptapJson,
+    }
+  }
 
   async fetchRemoteMeta(noteId: string) {
     const remoteVersion = this.versions.get(noteId)

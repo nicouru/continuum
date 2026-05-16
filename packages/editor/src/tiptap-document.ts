@@ -8,7 +8,7 @@ import type {
   StructuredNoteDraftSegment,
   StructuredNoteDraftWarning,
 } from "@continuum/core"
-import { assertNever } from "@continuum/core"
+import { assertNever, getUnsupportedCurrentNoteModelFeatures } from "@continuum/core"
 
 import type {
   TipTapJsonMark,
@@ -80,6 +80,12 @@ export function createStructuredDraftFromTipTapPrototypeDocument({
     citations,
     references: sourceDraft.references,
   })
+  const unsupportedFeatures = getTipTapDraftUnsupportedFeatures({
+    blocks,
+    citations,
+    references: sourceDraft.references,
+    warnings,
+  })
 
   return {
     ...sourceDraft,
@@ -87,8 +93,8 @@ export function createStructuredDraftFromTipTapPrototypeDocument({
     blocks,
     citations,
     persistence: {
-      safeForCurrentNoteModel: warnings.length === 0,
-      unsupportedFeatures: warnings.map((warning) => warning.code),
+      safeForCurrentNoteModel: unsupportedFeatures.length === 0,
+      unsupportedFeatures,
     },
     warnings,
   }
@@ -756,6 +762,37 @@ function getTipTapDraftWarnings({
   }
 
   return warnings
+}
+
+function getTipTapDraftUnsupportedFeatures({
+  blocks,
+  citations,
+  references,
+  warnings,
+}: {
+  blocks: readonly StructuredNoteDraftBlock[]
+  citations: readonly StructuredNoteDraftCitation[]
+  references: StructuredNoteDraft["references"]
+  warnings: readonly StructuredNoteDraftWarning[]
+}) {
+  const unsupportedFeatures = new Set(
+    getUnsupportedCurrentNoteModelFeatures({
+      blocks,
+      citations,
+      references,
+    }),
+  )
+
+  for (const warning of warnings) {
+    if (
+      warning.code === "duplicate-block-id" ||
+      warning.code === "discontinuous-aphorism"
+    ) {
+      unsupportedFeatures.add(warning.code)
+    }
+  }
+
+  return Array.from(unsupportedFeatures)
 }
 
 function getTipTapNodeText(node: TipTapJsonNode): string {

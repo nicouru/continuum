@@ -33,6 +33,7 @@ export type RemoteDraft = {
 }
 
 export interface DraftRemoteClient {
+  fetchRemoteDraft?(noteId: string): Promise<RemoteDraft | null>
   fetchRemoteMeta(noteId: string): Promise<{ remoteVersion: number } | null>
   listRemoteDrafts?(): Promise<RemoteDraft[]>
   pushDraft(payload: DraftPushPayload): Promise<DraftPushResult>
@@ -45,6 +46,8 @@ export class DraftRemoteError extends Error {
       code?: string
       status?: number
       body?: unknown
+      remoteDraft?: RemoteDraft
+      serverRemoteVersion?: number
     } = {},
   ) {
     super(message)

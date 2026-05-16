@@ -116,8 +116,10 @@ export class DraftSyncEngine {
           syncState: note.syncState as NoteSyncState,
         })
       ) {
+        const remoteDraft = await this.fetchRemoteDraftForConflict(noteId)
         const conflict = {
           code: "remote_ahead",
+          ...(remoteDraft ? { remoteDraft } : {}),
           serverRemoteVersion,
           storedRemoteVersion: note.remoteVersion,
         }
@@ -146,6 +148,18 @@ export class DraftSyncEngine {
       await this.deps.markState(noteId, "error")
       await this.deps.onError?.(noteId, error)
       return { error, status: "error" }
+    }
+  }
+
+  private async fetchRemoteDraftForConflict(noteId: string) {
+    if (!this.deps.client.fetchRemoteDraft) {
+      return null
+    }
+
+    try {
+      return await this.deps.client.fetchRemoteDraft(noteId)
+    } catch {
+      return null
     }
   }
 }

@@ -152,10 +152,111 @@ describe("DiarioDraftHttpRemoteClient", () => {
     await expect(client.fetchRemoteMeta("note-1")).resolves.toBeNull()
   })
 
-  it("lists Diario draft notes with structured draft payloads", async () => {
+  it("fetches a remote draft payload by note id", async () => {
     const calls: string[] = []
     const fetchImpl: FetchLike = async (url) => {
       calls.push(url)
+      return {
+        headers: { get: () => null },
+        json: async () => ({
+          data: {
+            draft: draft(),
+            note: {
+              id: "note-1",
+              slug: "note-1",
+              status: "draft",
+            },
+            sync: { remoteRevision: 8 },
+          },
+          ok: true,
+        }),
+        ok: true,
+        status: 200,
+        text: async () => "",
+      }
+    }
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+    })
+
+    await expect(client.fetchRemoteDraft("note-1")).resolves.toMatchObject({
+      noteId: "note-1",
+      remoteVersion: 8,
+      slug: "note-1",
+      status: "draft",
+      structuredDraft: { id: "note-1" },
+    })
+    expect(calls).toEqual([
+      "https://diario.example/api/admin/v1/tiptap-draft?noteId=note-1",
+    ])
+  })
+
+  it("lists Diario draft notes with the bulk structured draft endpoint", async () => {
+    const calls: string[] = []
+    const fetchImpl: FetchLike = async (url) => {
+      calls.push(url)
+      return {
+        headers: { get: () => null },
+        json: async () => ({
+          data: {
+            drafts: [
+              {
+                draft: draft(),
+                note: {
+                  id: "draft-1",
+                  slug: "draft-1",
+                  status: "draft",
+                },
+                sync: { remoteRevision: 4 },
+              },
+            ],
+          },
+          ok: true,
+        }),
+        ok: true,
+        status: 200,
+        text: async () => "",
+      }
+    }
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+    })
+
+    await expect(client.listRemoteDrafts()).resolves.toMatchObject([
+      {
+        noteId: "draft-1",
+        remoteVersion: 4,
+        slug: "draft-1",
+        status: "draft",
+        structuredDraft: { id: "note-1" },
+      },
+    ])
+    expect(calls).toEqual([
+      "https://diario.example/api/admin/v1/tiptap-drafts",
+    ])
+  })
+
+  it("falls back to legacy notes plus per-draft payloads when bulk listing is absent", async () => {
+    const calls: string[] = []
+    const fetchImpl: FetchLike = async (url) => {
+      calls.push(url)
+      if (url.endsWith("/api/admin/v1/tiptap-drafts")) {
+        return {
+          headers: { get: () => null },
+          json: async () => ({
+            error: {
+              code: "not_found",
+              message: "No encontrado.",
+            },
+            ok: false,
+          }),
+          ok: false,
+          status: 404,
+          text: async () => "",
+        }
+      }
       if (url.endsWith("/api/admin/v1/notes")) {
         return {
           headers: { get: () => null },
@@ -202,9 +303,67 @@ describe("DiarioDraftHttpRemoteClient", () => {
       },
     ])
     expect(calls).toEqual([
+      "https://diario.example/api/admin/v1/tiptap-drafts",
       "https://diario.example/api/admin/v1/notes",
       "https://diario.example/api/admin/v1/tiptap-draft?noteId=draft-1",
     ])
+  })
+
+  it("extracts the remote draft from Diario revision conflicts", async () => {
+    const fetchImpl: FetchLike = async () => ({
+      headers: { get: () => null },
+      json: async () => ({
+        error: {
+          code: "conflict",
+          details: {
+            baseRemoteRevision: 1,
+            noteId: "note-1",
+            remoteDraft: {
+              draft: draft(),
+              note: {
+                id: "note-1",
+                slug: "note-1",
+                status: "draft",
+              },
+              sync: { remoteRevision: 9 },
+            },
+            serverRemoteRevision: 9,
+          },
+          message: "La nota fue modificada online.",
+        },
+        version: 1,
+      }),
+      ok: false,
+      status: 409,
+      text: async () => "",
+    })
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+    })
+
+    await expect(
+      client.pushDraft({
+        deviceId: "device-1",
+        localVersion: 1,
+        noteId: "note-1",
+        remoteVersion: 1,
+        slug: "note-1",
+        structuredDraft: draft(),
+        tiptapJson: { type: "doc" },
+      }),
+    ).rejects.toMatchObject<DraftRemoteError>({
+      details: {
+        code: "conflict",
+        remoteDraft: {
+          noteId: "note-1",
+          remoteVersion: 9,
+          structuredDraft: { id: "note-1" },
+        },
+        serverRemoteVersion: 9,
+        status: 409,
+      },
+    })
   })
 
   it("surfaces Diario admin API errors", async () => {

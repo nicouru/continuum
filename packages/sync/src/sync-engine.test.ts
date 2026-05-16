@@ -92,4 +92,54 @@ describe("DraftSyncEngine", () => {
     expect(errors).toHaveLength(0)
     expect(result.status).toBe("conflict")
   })
+
+  it("loads the remote draft payload before surfacing remote-ahead conflicts", async () => {
+    const conflicts: unknown[] = []
+    const client: DraftRemoteClient = {
+      fetchRemoteDraft: async () => ({
+        noteId: "note-1",
+        remoteVersion: 3,
+        slug: "note-1",
+        status: "draft",
+        structuredDraft: normalizeStructuredNoteDraft({
+          blocks: [],
+          citations: [],
+          id: "note-1",
+          references: [],
+          title: "Remote",
+          writtenAt: "2026-05-15",
+        }),
+      }),
+      fetchRemoteMeta: async () => ({ remoteVersion: 3 }),
+      pushDraft: async () => {
+        throw new Error("push should not run")
+      },
+    }
+    const engine = new DraftSyncEngine({
+      applyRemoteSuccess: async () => undefined,
+      client,
+      isOffline: () => false,
+      loadNote: async () => ({ ...note(), remoteVersion: 1 }),
+      markState: async () => undefined,
+      onConflict: async (_noteId, error) => {
+        conflicts.push(error)
+      },
+      pollDirtyIds: async () => ["note-1"],
+    })
+
+    const result = await engine.syncNote("note-1")
+
+    expect(result.status).toBe("conflict")
+    expect(conflicts).toMatchObject([
+      {
+        remoteDraft: {
+          noteId: "note-1",
+          remoteVersion: 3,
+          structuredDraft: { title: "Remote" },
+        },
+        serverRemoteVersion: 3,
+        storedRemoteVersion: 1,
+      },
+    ])
+  })
 })

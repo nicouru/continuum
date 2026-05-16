@@ -112,6 +112,12 @@ function getConflictRemoteVersion(conflict: SyncConflictRecord | undefined) {
   if (typeof payload.serverRemoteVersion === "number") {
     return payload.serverRemoteVersion
   }
+  if (typeof payload.serverRemoteRevision === "number") {
+    return payload.serverRemoteRevision
+  }
+  if (isRecord(payload.remoteDraft) && typeof payload.remoteDraft.remoteVersion === "number") {
+    return payload.remoteDraft.remoteVersion
+  }
   if (isRecord(payload.body) && isRecord(payload.body.error)) {
     const details = payload.body.error.details
     if (isRecord(details) && typeof details.serverRemoteRevision === "number") {
