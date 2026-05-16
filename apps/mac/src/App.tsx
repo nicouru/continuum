@@ -20,6 +20,7 @@ import {
   getActiveReferenceInsertDetails,
   getFirstInlineMathInSelection,
   makeId,
+  markAllParagraphsAsAphorisms,
   markCurrentBlockAsAphorism,
   removeCitationFromSelection,
   type ContinuumEditorPayload,
@@ -1138,6 +1139,9 @@ export default function App() {
           onRetrySync={handleRetrySyncNow}
           onSetOffline={setOffline}
           onTrash={handleTrash}
+          onMarkAllParagraphsAsAphorisms={() =>
+            markAllParagraphsAsAphorisms(editorRef.current)
+          }
           onToggleAphorism={() => markCurrentBlockAsAphorism(editorRef.current)}
           onTitleChange={setTitle}
           onWrittenAtChange={setWrittenAt}

@@ -39,6 +39,7 @@ type ContinuumEditorMenuProps = {
   onCreateReferenceInsert: () => void
   onLogout: () => void
   onManualSave: () => void
+  onMarkAllParagraphsAsAphorisms: () => void
   onReferenceSearchChange: (value: string) => void
   onRemoveCitation: () => void
   onRestore: () => void
@@ -87,6 +88,7 @@ export function ContinuumEditorMenu({
   onCreateReferenceInsert,
   onLogout,
   onManualSave,
+  onMarkAllParagraphsAsAphorisms,
   onReferenceSearchChange,
   onRemoveCitation,
   onRestore,
@@ -158,6 +160,9 @@ export function ContinuumEditorMenu({
           <div className="continuum-menu-list">
             <MenuButton icon="A" onClick={onToggleAphorism}>
               Aforismo
+            </MenuButton>
+            <MenuButton icon="A*" onClick={onMarkAllParagraphsAsAphorisms}>
+              Todos los parrafos
             </MenuButton>
             <MenuButton
               disabled={!canCreateCitation}
