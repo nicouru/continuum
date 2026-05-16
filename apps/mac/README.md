@@ -1,7 +1,33 @@
-# Tauri + React + Typescript
+# Continuum Mac
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Tauri 2 desktop shell for Continuum.
 
-## Recommended IDE Setup
+## Run
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+```bash
+pnpm tauri:dev
+```
+
+The Vite-only command is useful for frontend iteration, but SQLite, Store, FS,
+and HTTP plugin behavior require Tauri.
+
+## Build
+
+```bash
+pnpm tauri:build
+```
+
+Artifacts are written under:
+
+```txt
+apps/mac/src-tauri/target/release/bundle/
+```
+
+## Runtime Notes
+
+- Login happens inside the app against Diario.
+- Draft saves stay local first, then sync through Diario HTTP APIs.
+- Local SQLite is a cache, offline queue, and recovery store. Diario remains the
+  canonical source of truth.
+- The app imports remote Diario drafts after login and skips local notes with
+  pending/conflicting changes.

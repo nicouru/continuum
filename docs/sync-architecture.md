@@ -50,10 +50,11 @@ Recommended policy:
   example 15 s, 30 s, 60 s, then up to 5 min.
 
 The current implementation follows this shape for the core path: it saves
-locally after the editor debounce, runs a periodic dirty flush every 15 s, sends
-manual saves immediately, and prevents concurrent sync requests for the same
-note. It still needs explicit app-close, note-switch and foreground/background
-flush hooks.
+locally after the editor debounce, stores pending work in a persistent
+`sync_queue`, runs a periodic dirty flush every 15 s, sends manual saves
+immediately, retries failed sync with backoff, and prevents concurrent sync
+requests for the same note. It still needs explicit app-close, note-switch and
+foreground/background flush hooks.
 
 ## Cross-Device Expectations
 
@@ -67,6 +68,10 @@ Target behavior:
 - Manual save/sync pushes immediately.
 - Android/iOS pulls immediately on app open and when returning to foreground.
 - Android/iOS can poll lightly, for example every 30 s, while open.
+
+The Mac app now performs a startup/login pull for Diario drafts through the
+admin notes list plus per-note TipTap draft endpoint. It skips local notes that
+already have unpushed edits or conflicts.
 
 Expected latency:
 
@@ -111,6 +116,15 @@ Diario exposes a durable draft `remoteRevision`. Continuum stores it locally as
 `remoteVersion`, fetches it before push, and sends it back as
 `baseRemoteRevision`. If Diario responds with `409 conflict`, Continuum records
 a remote conflict instead of marking the note as a generic sync error.
+
+Current MVP behavior:
+
+- The app shows conflict state in the note list and a selected-note conflict
+  panel.
+- The user can explicitly keep the local version. Continuum updates its stored
+  base remote revision to the current Diario revision and queues a new push.
+- “Keep remote” and “duplicate” remain follow-ups because the conflict response
+  currently carries revision metadata, not the full remote document body.
 
 ## Fly Operating Assumption
 

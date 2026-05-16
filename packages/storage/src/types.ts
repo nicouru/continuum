@@ -34,11 +34,28 @@ export type NoteFull = NoteMeta & {
   deviceId: string
 }
 
+export type SyncConflictRecord = {
+  id: string
+  noteId: string
+  createdAt: string
+  localPayload: unknown
+  remotePayload: unknown
+}
+
+export type SyncStatusSummary = {
+  conflictCount: number
+  errorCount: number
+  lastError: string | null
+  nextRetryAt: string | null
+  pendingCount: number
+}
+
 export type SaveNoteInput = {
   structuredDraft: StructuredNoteDraft
   tiptapJson: unknown
   deviceId: string
   slug?: string
+  remoteVersion?: number
   /** When true, increments `local_version` (autosave / edit). */
   bumpLocalVersion: boolean
   /** Forces `sync_state` when provided. */

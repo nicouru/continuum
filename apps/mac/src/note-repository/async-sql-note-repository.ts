@@ -16,6 +16,8 @@ import type {
   NoteMeta,
   NoteSyncState,
   SaveNoteInput,
+  SyncConflictRecord,
+  SyncStatusSummary,
 } from "@continuum/storage/types"
 
 export type AsyncSqlDatabase = {
@@ -36,6 +38,25 @@ function shouldQueueSync(state: NoteSyncState) {
 
 function syncQueuePayload(noteId: string, localVersion: number) {
   return JSON.stringify({ localVersion, noteId, queuedAt: nowIso() })
+}
+
+function retryDelaySeconds(attemptCount: number) {
+  if (attemptCount <= 0) {
+    return 0
+  }
+  if (attemptCount === 1) {
+    return 10
+  }
+  if (attemptCount === 2) {
+    return 30
+  }
+  if (attemptCount === 3) {
+    return 60
+  }
+  if (attemptCount === 4) {
+    return 120
+  }
+  return 300
 }
 
 function parseJsonDraft(raw: string): StructuredNoteDraft {
@@ -199,6 +220,44 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       return rows.map((row) => String(row.id))
     },
 
+    async getSyncStatus(): Promise<SyncStatusSummary> {
+      const [pendingRows, errorRows, conflictRows, queueRows] = await Promise.all([
+        db.select<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM notes WHERE sync_state IN ('dirty', 'error', 'offline')`,
+        ),
+        db.select<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM notes WHERE sync_state = 'error'`,
+        ),
+        db.select<{ count: number }>(
+          `SELECT COUNT(*) AS count FROM sync_conflicts WHERE resolved = 0`,
+        ),
+        db.select<{
+          attemptCount: number
+          createdAt: string
+          lastError: string | null
+        }>(`
+          SELECT created_at AS createdAt,
+                 attempt_count AS attemptCount,
+                 last_error AS lastError
+          FROM sync_queue
+          ORDER BY created_at ASC
+        `),
+      ])
+      const lastError =
+        queueRows
+          .slice()
+          .reverse()
+          .find((row) => row.lastError)?.lastError ?? null
+
+      return {
+        conflictCount: Number(conflictRows[0]?.count ?? 0),
+        errorCount: Number(errorRows[0]?.count ?? 0),
+        lastError,
+        nextRetryAt: getNextRetryAt(queueRows),
+        pendingCount: Number(pendingRows[0]?.count ?? 0),
+      }
+    },
+
     async ensureDeviceId(): Promise<string> {
       const rows = await db.select<{ value: string }>(
         `SELECT value FROM app_metadata WHERE key = 'device_id'`,
@@ -272,7 +331,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         updated_at: nowIso(),
         deleted_at: existing?.deletedAt ? String(existing.deletedAt) : null,
         local_version: localVersion,
-        remote_version: existing ? Number(existing.remoteVersion ?? 0) : 0,
+        remote_version: input.remoteVersion ?? (existing ? Number(existing.remoteVersion ?? 0) : 0),
         device_id: input.deviceId,
         last_synced_at: existing?.lastSyncedAt ? String(existing.lastSyncedAt) : null,
         sync_state: nextSyncState,
@@ -438,6 +497,15 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       )
     },
 
+    async retrySyncNow(): Promise<void> {
+      await db.execute(
+        dollarizeQuestionMarks(
+          `UPDATE sync_queue SET attempt_count = 0, created_at = ?, last_error = NULL`,
+        ),
+        [nowIso()],
+      )
+    },
+
     async recordSyncFailure(noteId: string, error: unknown): Promise<void> {
       const rows = await db.select<{ attemptCount: number | null }>(
         dollarizeQuestionMarks(
@@ -484,6 +552,52 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         ["conflict", nowIso(), noteId],
       )
     },
+
+    async listOpenConflicts(): Promise<SyncConflictRecord[]> {
+      const rows = await db.select<Record<string, unknown>>(`
+        SELECT id,
+               note_id AS noteId,
+               created_at AS createdAt,
+               local_payload AS localPayload,
+               remote_payload AS remotePayload
+        FROM sync_conflicts
+        WHERE resolved = 0
+        ORDER BY created_at DESC
+      `)
+
+      return rows.map((row) => ({
+        createdAt: String(row.createdAt),
+        id: String(row.id),
+        localPayload: parseUnknownJson(row.localPayload),
+        noteId: String(row.noteId),
+        remotePayload: parseUnknownJson(row.remotePayload),
+      }))
+    },
+
+    async resolveConflictKeepLocal(
+      noteId: string,
+      remoteVersion: number,
+    ): Promise<void> {
+      const note = await this.getNoteById(noteId)
+      if (!note) {
+        return
+      }
+      await db.execute(
+        dollarizeQuestionMarks(`
+        UPDATE notes
+        SET remote_version = ?, sync_state = 'dirty', updated_at = ?
+        WHERE id = ?
+      `),
+        [remoteVersion, nowIso(), noteId],
+      )
+      await db.execute(
+        dollarizeQuestionMarks(
+          `UPDATE sync_conflicts SET resolved = 1 WHERE note_id = ? AND resolved = 0`,
+        ),
+        [noteId],
+      )
+      await enqueueSync(noteId, note.localVersion)
+    },
   }
 }
 
@@ -491,4 +605,32 @@ export type AsyncSqlNoteRepository = ReturnType<typeof createAsyncSqlNoteReposit
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)
+}
+
+function getNextRetryAt(
+  rows: Array<{ attemptCount: number; createdAt: string }>,
+): string | null {
+  const candidates = rows
+    .map((row) => {
+      const createdMs = Date.parse(row.createdAt)
+      if (!Number.isFinite(createdMs)) {
+        return null
+      }
+      return new Date(createdMs + retryDelaySeconds(Number(row.attemptCount)) * 1000)
+    })
+    .filter((value): value is Date => Boolean(value))
+    .sort((left, right) => left.getTime() - right.getTime())
+
+  return candidates[0]?.toISOString() ?? null
+}
+
+function parseUnknownJson(value: unknown) {
+  if (typeof value !== "string") {
+    return value
+  }
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return value
+  }
 }

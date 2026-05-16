@@ -23,8 +23,18 @@ export type DraftPushResult = {
   }
 }
 
+export type RemoteDraft = {
+  noteId: string
+  remoteVersion: number
+  slug: string
+  status: string
+  structuredDraft: StructuredNoteDraft
+  tiptapJson?: unknown
+}
+
 export interface DraftRemoteClient {
   fetchRemoteMeta(noteId: string): Promise<{ remoteVersion: number } | null>
+  listRemoteDrafts?(): Promise<RemoteDraft[]>
   pushDraft(payload: DraftPushPayload): Promise<DraftPushResult>
 }
 

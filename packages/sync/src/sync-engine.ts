@@ -116,9 +116,13 @@ export class DraftSyncEngine {
           syncState: note.syncState as NoteSyncState,
         })
       ) {
-        const error = new Error("REMOTE_AHEAD")
-        await this.deps.onConflict(noteId, error)
-        return { error, status: "conflict" }
+        const conflict = {
+          code: "remote_ahead",
+          serverRemoteVersion,
+          storedRemoteVersion: note.remoteVersion,
+        }
+        await this.deps.onConflict(noteId, conflict)
+        return { error: conflict, status: "conflict" }
       }
 
       await this.deps.markState(noteId, "syncing")

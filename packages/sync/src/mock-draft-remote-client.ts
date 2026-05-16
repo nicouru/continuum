@@ -12,6 +12,10 @@ export class MockDraftRemoteClient implements DraftRemoteClient {
     return remoteVersion === undefined ? null : { remoteVersion }
   }
 
+  async listRemoteDrafts() {
+    return []
+  }
+
   async pushDraft(payload: DraftPushPayload): Promise<DraftPushResult> {
     const previous = this.versions.get(payload.noteId) ?? 0
 

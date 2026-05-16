@@ -21,15 +21,21 @@ Implemented:
 - Local autosave and manual draft save.
 - Emergency current-note draft file.
 - Trash and restore.
-- Mock draft sync engine and Diario HTTP draft sync client.
+- Real Diario login from the desktop app.
+- Persistent sync queue with retry/backoff.
+- Diario HTTP draft sync client.
+- Remote draft import on login.
 - Remote revision checks for Diario draft pushes.
+- Basic conflict surface with explicit keep-local resolution.
 - Structured note validation/conversion tests.
 
 Mocked or deferred:
 
 - Publishing/update/unpublish commands.
 - Search UI and SQLite FTS5 migrations.
-- Conflict resolution UI beyond detecting and recording remote conflicts.
+- Full keep-remote / duplicate conflict resolution. The MVP can safely keep the
+  local version; using the remote body requires full remote draft pull in the
+  conflict payload or a follow-up fetch path.
 - Full visual parity audit against Diario edge cases.
 - Production app icon/branding pass.
 
@@ -100,6 +106,12 @@ pnpm tauri:build
 ```
 
 The Tauri commands require a working Rust toolchain.
+Successful macOS builds produce:
+
+```txt
+apps/mac/src-tauri/target/release/bundle/macos/Continuum.app
+apps/mac/src-tauri/target/release/bundle/dmg/Continuum_0.1.0_aarch64.dmg
+```
 
 ## Validation
 
@@ -141,23 +153,9 @@ operating assumptions.
 
 Save and autosave always mean draft. They never publish.
 
-Continuum uses a mock remote by default so local writing works without a Diario
-backend.
-
-To try real Diario admin draft sync, create `apps/mac/.env` from
-`apps/mac/.env.example`:
-
-```bash
-cd apps/mac
-cp .env.example .env
-```
-
-Then set:
-
-```env
-VITE_DIARIO_ADMIN_BASE_URL=http://localhost:3000
-VITE_DIARIO_ADMIN_SESSION_COOKIE=diario_admin_session=...
-```
+Continuum now uses an in-app Diario login. The default target is
+`https://ocurrencias.net`; a dev base URL can still be provided through
+`VITE_DIARIO_ADMIN_BASE_URL`.
 
 The current Diario endpoint is:
 
@@ -166,9 +164,9 @@ POST /api/admin/v1/tiptap-draft
 body: { "draft": StructuredNoteDraft, "baseRemoteRevision": number }
 ```
 
-The app sends that request through the Tauri HTTP plugin and falls back to the
-mock remote when no base URL is configured. Current Diario admin writes require
-the web backend to be configured for local SQLite writes and admin write mode.
+The app sends that request through the Tauri HTTP plugin with the stored Diario
+session cookie. Current Diario admin writes require the web backend to be
+configured for local SQLite writes and admin write mode.
 
 Continuum also reads the Diario draft metadata through
 `GET /api/admin/v1/tiptap-draft?noteId=<id>` and stores the returned
@@ -176,13 +174,23 @@ Continuum also reads the Diario draft metadata through
 server moved forward from another client and the local note is marked as a sync
 conflict instead of being overwritten.
 
-Never commit real admin cookies or secrets. The app must never connect directly
-to the production database.
+On login, Continuum imports remote Diario drafts with:
+
+```txt
+GET /api/admin/v1/notes
+GET /api/admin/v1/tiptap-draft?noteId=<id>
+```
+
+It skips local notes that already have unpushed changes, errors, or conflicts.
+
+Never commit real admin cookies, passwords, or secrets. The app must never
+connect directly to the production database.
 
 ## Next Review Items
 
 - Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
-- Add conflict UI for keep-local / keep-remote / duplicate.
+- Add full keep-remote / duplicate conflict resolution once remote bodies are
+  available in the conflict path.
 - Add SQLite FTS5 migrations after the search model is ready.
 - Code-split TipTap/KaTeX vendor chunks.
 - Exercise the app through `pnpm tauri:dev` on macOS with real writing sessions.

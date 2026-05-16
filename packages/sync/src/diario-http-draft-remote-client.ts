@@ -2,6 +2,7 @@ import type {
   DraftPushPayload,
   DraftPushResult,
   DraftRemoteClient,
+  RemoteDraft,
 } from "./types"
 import { DraftRemoteError } from "./types"
 
@@ -51,9 +52,21 @@ type AdminApiSuccessData = {
   }
 }
 
+type AdminNoteListData = {
+  notes?: Array<{
+    id?: string
+    slug?: string
+    status?: string
+  }>
+}
+
+type AdminDraftData = AdminApiSuccessData & {
+  draft?: import("@continuum/core").StructuredNoteDraft
+}
+
 type AdminApiEnvelope =
   | {
-      data?: AdminApiSuccessData
+      data?: AdminApiSuccessData | AdminNoteListData | AdminDraftData
       ok?: true
     }
   | {
@@ -65,6 +78,7 @@ type AdminApiEnvelope =
     }
 
 const TIPTAP_DRAFT_PATH = "/api/admin/v1/tiptap-draft"
+const NOTES_PATH = "/api/admin/v1/notes"
 
 export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
   private readonly baseUrl: URL
@@ -85,30 +99,56 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
   }
 
   async fetchRemoteMeta(noteId: string) {
-    const response = await this.fetchImpl(
-      this.url(`${TIPTAP_DRAFT_PATH}?noteId=${encodeURIComponent(noteId)}`),
-      {
-        credentials: "include",
-        headers: this.headers(),
-        method: "GET",
-        timeout: this.timeoutSeconds,
-      },
-    )
-    const body = await readJsonOrText(response)
+    const data = await this.fetchRemoteDraftData(noteId)
 
-    if (response.status === 404) {
+    if (!data) {
       return null
     }
+
+    const remoteVersion = getRemoteVersionFromData(data)
+
+    return typeof remoteVersion === "number" ? { remoteVersion } : null
+  }
+
+  async listRemoteDrafts(): Promise<RemoteDraft[]> {
+    const response = await this.fetchImpl(this.url(NOTES_PATH), {
+      credentials: "include",
+      headers: this.headers(),
+      method: "GET",
+      timeout: this.timeoutSeconds,
+    })
+    const body = await readJsonOrText(response)
 
     if (!response.ok) {
       throw createRemoteError(response.status, body)
     }
 
     const envelope = body as AdminApiEnvelope
-    const data = "data" in envelope ? envelope.data : undefined
-    const remoteVersion = getRemoteVersionFromData(data)
+    const data = ("data" in envelope ? envelope.data : undefined) as
+      | AdminNoteListData
+      | undefined
+    const notes = isRecord(data) && Array.isArray(data.notes) ? data.notes : []
+    const drafts: RemoteDraft[] = []
 
-    return typeof remoteVersion === "number" ? { remoteVersion } : null
+    for (const note of notes) {
+      if (!isRecord(note) || note.status !== "draft" || typeof note.id !== "string") {
+        continue
+      }
+      const draftData = await this.fetchRemoteDraftData(note.id)
+      if (!draftData?.draft) {
+        continue
+      }
+      const remoteVersion = getRemoteVersionFromData(draftData)
+      drafts.push({
+        noteId: note.id,
+        remoteVersion: remoteVersion ?? 0,
+        slug: typeof note.slug === "string" ? note.slug : note.id,
+        status: "draft",
+        structuredDraft: draftData.draft,
+      })
+    }
+
+    return drafts
   }
 
   async pushDraft(payload: DraftPushPayload): Promise<DraftPushResult> {
@@ -129,7 +169,9 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
     }
 
     const envelope = body as AdminApiEnvelope
-    const data = "data" in envelope ? envelope.data : undefined
+    const data = ("data" in envelope ? envelope.data : undefined) as
+      | AdminApiSuccessData
+      | undefined
     const remoteVersion = getRemoteVersionFromData(data) ?? payload.remoteVersion + 1
     const etag = response.headers.get("etag") ?? undefined
 
@@ -174,6 +216,31 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
 
   private url(path: string) {
     return new URL(path, this.baseUrl).toString()
+  }
+
+  private async fetchRemoteDraftData(noteId: string): Promise<AdminDraftData | null> {
+    const response = await this.fetchImpl(
+      this.url(`${TIPTAP_DRAFT_PATH}?noteId=${encodeURIComponent(noteId)}`),
+      {
+        credentials: "include",
+        headers: this.headers(),
+        method: "GET",
+        timeout: this.timeoutSeconds,
+      },
+    )
+    const body = await readJsonOrText(response)
+
+    if (response.status === 404) {
+      return null
+    }
+
+    if (!response.ok) {
+      throw createRemoteError(response.status, body)
+    }
+
+    const envelope = body as AdminApiEnvelope
+    const data = "data" in envelope ? envelope.data : undefined
+    return isRecord(data) ? (data as AdminDraftData) : null
   }
 }
 

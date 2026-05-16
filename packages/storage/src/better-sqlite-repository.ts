@@ -16,6 +16,8 @@ import type {
   NoteMeta,
   NoteSyncState,
   SaveNoteInput,
+  SyncConflictRecord,
+  SyncStatusSummary,
 } from "./types"
 
 export function migrateBetterSqlite(db: Database.Database) {
@@ -36,6 +38,25 @@ function shouldQueueSync(state: NoteSyncState) {
 
 function syncQueuePayload(noteId: string, localVersion: number) {
   return JSON.stringify({ localVersion, noteId, queuedAt: nowIso() })
+}
+
+function retryDelaySeconds(attemptCount: number) {
+  if (attemptCount <= 0) {
+    return 0
+  }
+  if (attemptCount === 1) {
+    return 10
+  }
+  if (attemptCount === 2) {
+    return 30
+  }
+  if (attemptCount === 3) {
+    return 60
+  }
+  if (attemptCount === 4) {
+    return 120
+  }
+  return 300
 }
 
 function parseJsonDraft(raw: string): StructuredNoteDraft {
@@ -189,6 +210,51 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       return rows.map((row) => String(row.id))
     },
 
+    getSyncStatus(): SyncStatusSummary {
+      const pendingRow = db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM notes WHERE sync_state IN ('dirty', 'error', 'offline')`,
+        )
+        .get() as { count: number }
+      const errorRow = db
+        .prepare(`SELECT COUNT(*) AS count FROM notes WHERE sync_state = 'error'`)
+        .get() as { count: number }
+      const conflictRow = db
+        .prepare(
+          `SELECT COUNT(*) AS count FROM sync_conflicts WHERE resolved = 0`,
+        )
+        .get() as { count: number }
+      const queueRows = db
+        .prepare(
+          `
+          SELECT created_at AS createdAt,
+                 attempt_count AS attemptCount,
+                 last_error AS lastError
+          FROM sync_queue
+          ORDER BY created_at ASC
+        `,
+        )
+        .all() as Array<{
+        attemptCount: number
+        createdAt: string
+        lastError: string | null
+      }>
+      const nextRetryAt = getNextRetryAt(queueRows)
+      const lastError =
+        queueRows
+          .slice()
+          .reverse()
+          .find((row) => row.lastError)?.lastError ?? null
+
+      return {
+        conflictCount: Number(conflictRow.count ?? 0),
+        errorCount: Number(errorRow.count ?? 0),
+        lastError,
+        nextRetryAt,
+        pendingCount: Number(pendingRow.count ?? 0),
+      }
+    },
+
     ensureDeviceId(): string {
       const row = db
         .prepare(`SELECT value FROM app_metadata WHERE key = 'device_id'`)
@@ -260,7 +326,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         updated_at: nowIso(),
         deleted_at: existing?.deletedAt ? String(existing.deletedAt) : null,
         local_version: localVersion,
-        remote_version: existing ? Number(existing.remoteVersion ?? 0) : 0,
+        remote_version: input.remoteVersion ?? (existing ? Number(existing.remoteVersion ?? 0) : 0),
         device_id: input.deviceId,
         last_synced_at: existing?.lastSyncedAt
           ? String(existing.lastSyncedAt)
@@ -406,6 +472,12 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       )
     },
 
+    retrySyncNow() {
+      db.prepare(
+        `UPDATE sync_queue SET attempt_count = 0, created_at = ?, last_error = NULL`,
+      ).run(nowIso())
+    },
+
     recordSyncFailure(noteId: string, error: unknown) {
       const row = db
         .prepare(
@@ -437,6 +509,49 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       clearSyncQueue(noteId)
       this.markSyncState(noteId, "conflict")
     },
+
+    listOpenConflicts(): SyncConflictRecord[] {
+      const rows = db
+        .prepare(
+          `
+          SELECT id,
+                 note_id AS noteId,
+                 created_at AS createdAt,
+                 local_payload AS localPayload,
+                 remote_payload AS remotePayload
+          FROM sync_conflicts
+          WHERE resolved = 0
+          ORDER BY created_at DESC
+        `,
+        )
+        .all() as Array<Record<string, unknown>>
+
+      return rows.map((row) => ({
+        createdAt: String(row.createdAt),
+        id: String(row.id),
+        localPayload: parseUnknownJson(row.localPayload),
+        noteId: String(row.noteId),
+        remotePayload: parseUnknownJson(row.remotePayload),
+      }))
+    },
+
+    resolveConflictKeepLocal(noteId: string, remoteVersion: number) {
+      const note = this.getNoteById(noteId)
+      if (!note) {
+        return
+      }
+      db.prepare(
+        `
+        UPDATE notes
+        SET remote_version = ?, sync_state = 'dirty', updated_at = ?
+        WHERE id = ?
+      `,
+      ).run(remoteVersion, nowIso(), noteId)
+      db.prepare(
+        `UPDATE sync_conflicts SET resolved = 1 WHERE note_id = ? AND resolved = 0`,
+      ).run(noteId)
+      enqueueSync(noteId, note.localVersion)
+    },
   }
 }
 
@@ -452,4 +567,32 @@ export function emergencyIsNewer(
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error)
+}
+
+function getNextRetryAt(
+  rows: Array<{ attemptCount: number; createdAt: string }>,
+): string | null {
+  const candidates = rows
+    .map((row) => {
+      const createdMs = Date.parse(row.createdAt)
+      if (!Number.isFinite(createdMs)) {
+        return null
+      }
+      return new Date(createdMs + retryDelaySeconds(Number(row.attemptCount)) * 1000)
+    })
+    .filter((value): value is Date => Boolean(value))
+    .sort((left, right) => left.getTime() - right.getTime())
+
+  return candidates[0]?.toISOString() ?? null
+}
+
+function parseUnknownJson(value: unknown) {
+  if (typeof value !== "string") {
+    return value
+  }
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return value
+  }
 }

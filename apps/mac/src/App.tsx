@@ -16,7 +16,12 @@ import {
   removeCitationFromSelection,
   type ContinuumEditorPayload,
 } from "@continuum/editor"
-import type { NoteFull, NoteMeta } from "@continuum/storage/types"
+import type {
+  NoteFull,
+  NoteMeta,
+  SyncConflictRecord,
+  SyncStatusSummary,
+} from "@continuum/storage/types"
 import { DraftSyncEngine } from "@continuum/sync"
 import type { FormEvent } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -59,6 +64,74 @@ function bootstrapErrorMessage(error: unknown): string {
   return fallback === "[object Object]" ? "No se pudo abrir la base local." : fallback
 }
 
+function syncStateLabel(state: NoteMeta["syncState"]) {
+  switch (state) {
+    case "local_only":
+      return "Local"
+    case "dirty":
+      return "Pendiente"
+    case "syncing":
+      return "Subiendo"
+    case "synced":
+      return "Sync"
+    case "offline":
+      return "Offline"
+    case "conflict":
+      return "Conflicto"
+    case "error":
+      return "Error"
+  }
+}
+
+function normalizeConflictPayload(error: unknown) {
+  if (isRecord(error) && isRecord(error.details)) {
+    return error.details
+  }
+  return error
+}
+
+function getConflictRemoteVersion(conflict: SyncConflictRecord | undefined) {
+  const payload = conflict?.remotePayload
+  if (!isRecord(payload)) {
+    return null
+  }
+  if (typeof payload.serverRemoteVersion === "number") {
+    return payload.serverRemoteVersion
+  }
+  if (isRecord(payload.body) && isRecord(payload.body.error)) {
+    const details = payload.body.error.details
+    if (isRecord(details) && typeof details.serverRemoteRevision === "number") {
+      return details.serverRemoteRevision
+    }
+  }
+  return null
+}
+
+function formatRetryTime(value: string | null) {
+  if (!value) {
+    return null
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function hasUnpushedLocalState(note: NoteFull) {
+  return (
+    note.syncState === "dirty" ||
+    note.syncState === "offline" ||
+    note.syncState === "error" ||
+    note.syncState === "conflict" ||
+    note.syncState === "syncing"
+  )
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -83,6 +156,9 @@ export default function App() {
   const [livePayload, setLivePayload] = useState<ContinuumEditorPayload | null>(null)
 
   const [syncLabel, setSyncLabel] = useState("Listo")
+  const [syncStatus, setSyncStatus] = useState<SyncStatusSummary | null>(null)
+  const [conflicts, setConflicts] = useState<SyncConflictRecord[]>([])
+  const [syncBusy, setSyncBusy] = useState(false)
   const [offline, setOffline] = useState(false)
 
   const editorRef = useRef<Editor | null>(null)
@@ -95,6 +171,7 @@ export default function App() {
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const engineRef = useRef<DraftSyncEngine | null>(null)
+  const remoteImportSessionRef = useRef("")
 
   const refreshList = useCallback(async () => {
     if (!repo) {
@@ -105,6 +182,18 @@ export default function App() {
     })
     setNotes(rows)
   }, [repo, folder])
+
+  const refreshSyncStatus = useCallback(async () => {
+    if (!repo) {
+      return
+    }
+    const [status, openConflicts] = await Promise.all([
+      repo.getSyncStatus(),
+      repo.listOpenConflicts(),
+    ])
+    setSyncStatus(status)
+    setConflicts(openConflicts)
+  }, [repo])
 
   useEffect(() => {
     if (!selectedId) {
@@ -145,6 +234,12 @@ export default function App() {
           return
         }
         setNotes(list)
+        const [status, openConflicts] = await Promise.all([
+          nextRepo.getSyncStatus(),
+          nextRepo.listOpenConflicts(),
+        ])
+        setSyncStatus(status)
+        setConflicts(openConflicts)
         const initialId =
           prefs.lastOpenedNoteId &&
           list.some((note) => note.id === prefs.lastOpenedNoteId)
@@ -201,7 +296,76 @@ export default function App() {
       return
     }
     void refreshList()
-  }, [repo, folder, refreshList])
+    void refreshSyncStatus()
+  }, [repo, folder, refreshList, refreshSyncStatus])
+
+  useEffect(() => {
+    if (!repo || !authSession) {
+      return
+    }
+    const id = window.setInterval(() => {
+      void refreshSyncStatus()
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [authSession, refreshSyncStatus, repo])
+
+  useEffect(() => {
+    if (!repo || !authSession || !deviceId || !remote.client.listRemoteDrafts) {
+      return
+    }
+    const importKey = `${authSession.baseUrl}:${authSession.userEmail}`
+    if (remoteImportSessionRef.current === importKey) {
+      return
+    }
+    remoteImportSessionRef.current = importKey
+    let cancelled = false
+
+    void (async () => {
+      setSyncLabel("Importando Diario…")
+      try {
+        const drafts = await remote.client.listRemoteDrafts?.()
+        let imported = 0
+        for (const draft of drafts ?? []) {
+          if (cancelled) {
+            return
+          }
+          const existing = await repo.getNoteById(draft.noteId)
+          if (existing && hasUnpushedLocalState(existing)) {
+            continue
+          }
+          const prototype = continuumBootstrapPrototype(draft.structuredDraft)
+          await repo.saveNote({
+            bumpLocalVersion: false,
+            deviceId,
+            remoteVersion: draft.remoteVersion,
+            slug: draft.slug,
+            structuredDraft: draft.structuredDraft,
+            syncState: "synced",
+            tiptapJson: draft.tiptapJson ?? prototype.tiptap,
+          })
+          imported += 1
+        }
+        if (!cancelled) {
+          const list = await repo.listNotesMeta({ folder: "all" })
+          setNotes(list)
+          if (!selectedRef.current) {
+            setSelectedId(list[0]?.id ?? null)
+          }
+          await refreshSyncStatus()
+          setSyncLabel(imported > 0 ? `Importadas ${imported}` : "Diario al día")
+        }
+      } catch (error) {
+        console.error(error)
+        if (!cancelled) {
+          setSyncLabel("No se pudo importar Diario")
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authSession, deviceId, refreshList, refreshSyncStatus, remote.client, repo])
 
   useEffect(() => {
     if (!repo || !selectedId) {
@@ -259,6 +423,7 @@ export default function App() {
             remote.mode === "http" ? "Sincronizado online" : "Sincronizado (mock)",
           )
           await refreshList()
+          await refreshSyncStatus()
           if (noteId === selectedRef.current) {
             const next = await repo.getNoteById(noteId)
             setFullNote(next)
@@ -266,6 +431,7 @@ export default function App() {
         },
         markState: async (noteId, state) => {
           await repo.markSyncState(noteId, state as never)
+          await refreshSyncStatus()
           if (state === "syncing") {
             setSyncLabel("Subiendo a Diario...")
           }
@@ -276,13 +442,15 @@ export default function App() {
             setSyncLabel("Pendiente de reintento")
           }
         },
-        onConflict: async (noteId) => {
+        onConflict: async (noteId, error) => {
           const local = await repo.getNoteById(noteId)
-          await repo.recordConflict(noteId, local, { remoteAhead: true })
+          await repo.recordConflict(noteId, local, normalizeConflictPayload(error))
+          await refreshSyncStatus()
           setSyncLabel("Conflicto remoto")
         },
         onError: async (noteId, error) => {
           await repo.recordSyncFailure(noteId, error)
+          await refreshSyncStatus()
           setSyncLabel(
             remote.mode === "http" ? "Error sync Diario" : "Error sync mock",
           )
@@ -296,7 +464,7 @@ export default function App() {
       engine.stop()
       engineRef.current = null
     }
-  }, [authSession, remote, repo, refreshList])
+  }, [authSession, refreshList, refreshSyncStatus, remote, repo])
 
   const flushAutosaveTimer = () => {
     if (debounceRef.current) {
@@ -350,11 +518,12 @@ export default function App() {
         await repo.appendRevision(selectedId)
       }
       await refreshList()
+      await refreshSyncStatus()
       if (selectedRef.current === selectedId) {
         setFullNote(saved)
       }
     },
-    [deviceId, offline, refreshList, remote.mode, repo, selectedId],
+    [deviceId, offline, refreshList, refreshSyncStatus, remote.mode, repo, selectedId],
   )
 
   const scheduleAutosave = useCallback(
@@ -411,6 +580,7 @@ export default function App() {
       setFolder("all")
       setSelectedId(saved.id)
       await refreshList()
+      await refreshSyncStatus()
     } finally {
       setCreatingNote(false)
     }
@@ -456,6 +626,58 @@ export default function App() {
     await runSave(livePayload, { manual: true })
   }
 
+  const handleRetrySyncNow = async () => {
+    if (!repo || syncBusy) {
+      return
+    }
+    setSyncBusy(true)
+    setSyncLabel("Reintentando…")
+    try {
+      await repo.retrySyncNow()
+      await engineRef.current?.flushDirty()
+      await refreshList()
+      await refreshSyncStatus()
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
+  const handleKeepLocalConflict = async () => {
+    if (!repo || !selectedId || !fullNote || syncBusy) {
+      return
+    }
+    const conflict = conflicts.find((item) => item.noteId === selectedId)
+    if (!conflict) {
+      return
+    }
+    setSyncBusy(true)
+    setSyncLabel("Resolviendo conflicto…")
+    try {
+      const remoteVersion =
+        getConflictRemoteVersion(conflict) ??
+        (await remote.client.fetchRemoteMeta(selectedId))?.remoteVersion ??
+        fullNote.remoteVersion
+      await repo.appendRevision(selectedId)
+      await repo.resolveConflictKeepLocal(selectedId, remoteVersion)
+      await refreshList()
+      await refreshSyncStatus()
+      const result = await engineRef.current?.syncNote(selectedId)
+      if (result?.status === "success") {
+        setSyncLabel("Sincronizado online")
+      } else if (result?.status === "conflict") {
+        setSyncLabel("Conflicto remoto")
+      } else {
+        setSyncLabel("Pendiente de reintento")
+      }
+      const next = await repo.getNoteById(selectedId)
+      setFullNote(next)
+      await refreshList()
+      await refreshSyncStatus()
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
   const handleTrash = async () => {
     if (!repo || !selectedId || folder !== "all") {
       return
@@ -464,6 +686,7 @@ export default function App() {
     await repo.moveToTrash(selectedId)
     setSelectedId(null)
     await refreshList()
+    await refreshSyncStatus()
   }
 
   const handleRestore = async () => {
@@ -473,6 +696,7 @@ export default function App() {
     await repo.restoreFromTrash(selectedId)
     setFolder("all")
     await refreshList()
+    await refreshSyncStatus()
   }
 
   const handleAddReference = async () => {
@@ -500,6 +724,7 @@ export default function App() {
     const refreshed = await repo.getNoteById(fullNote.id)
     setFullNote(refreshed)
     await refreshList()
+    await refreshSyncStatus()
   }
 
   if (bootstrapError) {
@@ -630,6 +855,8 @@ export default function App() {
   }
 
   const prototype = continuumBootstrapPrototype(fullNote.structuredDraft)
+  const selectedConflict = conflicts.find((conflict) => conflict.noteId === selectedId)
+  const retryTime = formatRetryTime(syncStatus?.nextRetryAt ?? null)
 
   return (
     <div className="continuum-shell">
@@ -668,6 +895,11 @@ export default function App() {
                 <div className="continuum-list-date">{note.writtenAt}</div>
                 <div className="continuum-list-title">
                   {note.title?.trim() || note.excerpt || "Borrador"}
+                </div>
+                <div
+                  className={`continuum-list-sync continuum-list-sync--${note.syncState}`}
+                >
+                  {syncStateLabel(note.syncState)}
                 </div>
               </button>
             ))}
@@ -768,8 +1000,26 @@ export default function App() {
             <button type="button" onClick={handleManualSave}>
               Guardar borrador
             </button>
+            <button
+              type="button"
+              disabled={syncBusy || !syncStatus?.pendingCount}
+              onClick={handleRetrySyncNow}
+            >
+              Reintentar
+            </button>
             <span className="continuum-sync-pill" title={syncLabel}>
               {syncLabel}
+            </span>
+            <span
+              className="continuum-sync-detail"
+              title={syncStatus?.lastError ?? undefined}
+            >
+              {syncStatus?.conflictCount
+                ? `${syncStatus.conflictCount} conflicto`
+                : syncStatus?.pendingCount
+                  ? `${syncStatus.pendingCount} pendiente`
+                  : "0 pendiente"}
+              {retryTime ? ` · ${retryTime}` : ""}
             </span>
             <span className="continuum-sync-source" title={`Sync: ${remote.label}`}>
               {remote.mode === "http" ? "Diario" : "Mock"}
@@ -779,6 +1029,34 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {selectedConflict ? (
+          <section className="continuum-conflict-panel">
+            <div>
+              <strong>Conflicto remoto</strong>
+              <p>
+                Esta nota cambió online antes de subir tu versión local. Podés
+                conservar tu copia y subirla de nuevo, o dejar el conflicto pendiente.
+              </p>
+            </div>
+            <div className="continuum-conflict-actions">
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={handleKeepLocalConflict}
+              >
+                Conservar local
+              </button>
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={() => setSyncLabel("Conflicto pendiente")}
+              >
+                Dejar pendiente
+              </button>
+            </div>
+          </section>
+        ) : null}
 
         <ContinuumEditor
           initialDraft={fullNote.structuredDraft}

@@ -98,4 +98,33 @@ describe("SQLite repository", () => {
       ).count,
     ).toBe(0)
   })
+
+  it("resolves conflicts by keeping the local draft queued against the latest remote version", () => {
+    const db = new Database(":memory:")
+    migrateBetterSqlite(db)
+    const repo = createBetterSqlNoteRepository(db)
+    const deviceId = repo.ensureDeviceId()
+    const draft = createNewStructuredNoteDraft(new Date(), [])
+
+    repo.saveNote({
+      bumpLocalVersion: true,
+      deviceId,
+      remoteVersion: 1,
+      structuredDraft: draft,
+      syncState: "dirty",
+      tiptapJson: { type: "doc", content: [] },
+    })
+    repo.recordConflict(draft.id, { local: true }, { serverRemoteVersion: 3 })
+
+    expect(repo.listOpenConflicts()).toHaveLength(1)
+    expect(repo.getNoteById(draft.id)?.syncState).toBe("conflict")
+
+    repo.resolveConflictKeepLocal(draft.id, 3)
+
+    const note = repo.getNoteById(draft.id)
+    expect(note?.remoteVersion).toBe(3)
+    expect(note?.syncState).toBe("dirty")
+    expect(repo.listDirtyIds()).toEqual([draft.id])
+    expect(repo.listOpenConflicts()).toHaveLength(0)
+  })
 })
