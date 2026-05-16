@@ -23,6 +23,7 @@ export type ContinuumEditorMenuReferenceInput = {
 type ContinuumEditorMenuProps = {
   activeCitation: ActiveCitationDetails | null
   activeReferenceInsert: ActiveReferenceInsertDetails | null
+  appearanceMode: "dark" | "light"
   canCreateCitation: boolean
   canCreateInlineMath: boolean
   canCreateReferenceInsert: boolean
@@ -47,6 +48,7 @@ type ContinuumEditorMenuProps = {
   onConvertInlineMath: () => void
   onCreateReferenceInsert: () => void
   onLogout: () => void
+  onSetAppearanceMode: (value: "dark" | "light") => void
   onJoinPreviousAphorism: () => void
   onManualSave: () => void
   onMarkAllParagraphsAsAphorisms: () => void
@@ -82,6 +84,7 @@ type ContinuumEditorMenuProps = {
 export function ContinuumEditorMenu({
   activeCitation,
   activeReferenceInsert,
+  appearanceMode,
   canCreateCitation,
   canCreateInlineMath,
   canCreateReferenceInsert,
@@ -103,6 +106,7 @@ export function ContinuumEditorMenu({
   onConvertInlineMath,
   onCreateReferenceInsert,
   onLogout,
+  onSetAppearanceMode,
   onJoinPreviousAphorism,
   onManualSave,
   onMarkAllParagraphsAsAphorisms,
@@ -399,6 +403,12 @@ export function ContinuumEditorMenu({
         </MenuSection>
 
         <MenuSection icon="C" title="Aplicacion">
+          <MenuButton
+            icon={appearanceMode === "dark" ? "☼" : "☾"}
+            onClick={() => onSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")}
+          >
+            {appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
+          </MenuButton>
           <MenuButton icon="←" onClick={onLogout}>
             Salir
           </MenuButton>

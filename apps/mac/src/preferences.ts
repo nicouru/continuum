@@ -3,6 +3,7 @@ import { load } from "@tauri-apps/plugin-store"
 const STORE_PATH = "continuum-preferences.json"
 
 export type ContinuumPreferences = {
+  appearanceMode: "dark" | "light"
   sidebarVisible: boolean
   sidebarWidth: number
   lastOpenedNoteId: string | null
@@ -10,10 +11,12 @@ export type ContinuumPreferences = {
 
 export async function readPreferences(): Promise<ContinuumPreferences> {
   const store = await load(STORE_PATH)
+  const appearanceMode = await store.get<string>("appearanceMode")
   const sidebarVisible = await store.get<boolean>("sidebarVisible")
   const sidebarWidth = await store.get<number>("sidebarWidth")
   const lastOpenedNoteId = await store.get<string>("lastOpenedNoteId")
   return {
+    appearanceMode: appearanceMode === "light" ? "light" : "dark",
     sidebarVisible: sidebarVisible ?? true,
     sidebarWidth: sidebarWidth ?? 320,
     lastOpenedNoteId: lastOpenedNoteId ?? null,
@@ -22,6 +25,9 @@ export async function readPreferences(): Promise<ContinuumPreferences> {
 
 export async function writePreferences(partial: Partial<ContinuumPreferences>) {
   const store = await load(STORE_PATH)
+  if (partial.appearanceMode !== undefined) {
+    await store.set("appearanceMode", partial.appearanceMode)
+  }
   if (partial.sidebarVisible !== undefined) {
     await store.set("sidebarVisible", partial.sidebarVisible)
   }

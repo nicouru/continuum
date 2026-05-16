@@ -64,6 +64,7 @@ import {
   ContinuumEditorMenu,
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
+import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
 import "./App.css"
 
@@ -344,7 +345,20 @@ function TrashIcon() {
 function BrandMark() {
   return (
     <span className="continuum-brand-mark">
-      <img src={brandLogoUrl} alt="" width="22" height="22" />
+      <img
+        className="continuum-brand-mark-dark"
+        src={brandLogoUrl}
+        alt=""
+        width="22"
+        height="22"
+      />
+      <img
+        className="continuum-brand-mark-light"
+        src={brandLogoBlackUrl}
+        alt=""
+        width="22"
+        height="22"
+      />
       <span>Continuum</span>
     </span>
   )
@@ -363,6 +377,7 @@ export default function App() {
   const [loginSubmitting, setLoginSubmitting] = useState(false)
   const [creatingNote, setCreatingNote] = useState(false)
 
+  const [appearanceMode, setAppearanceMode] = useState<"dark" | "light">("dark")
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
   const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
@@ -626,6 +641,7 @@ export default function App() {
         }
         setRepo(nextRepo)
         setDeviceId(devId)
+        setAppearanceMode(prefs.appearanceMode)
         setSidebarVisible(prefs.sidebarVisible)
         setSidebarWidth(clampSidebarWidth(prefs.sidebarWidth))
         setAuthSession(session)
@@ -1007,6 +1023,11 @@ export default function App() {
     const next = !sidebarVisible
     setSidebarVisible(next)
     void writePreferences({ sidebarVisible: next })
+  }
+
+  const handleSetAppearanceMode = (value: "dark" | "light") => {
+    setAppearanceMode(value)
+    void writePreferences({ appearanceMode: value })
   }
 
   const handleSidebarResizeMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -1505,7 +1526,7 @@ export default function App() {
 
   if (bootstrapError) {
     return (
-      <div className="continuum-shell">
+      <div className="continuum-shell" data-theme={appearanceMode}>
         <p className="continuum-error">{bootstrapError}</p>
         <p className="continuum-help">
           Ejecutá la app con <code>pnpm tauri:dev</code> para habilitar SQLite embebido.
@@ -1516,7 +1537,7 @@ export default function App() {
 
   if (!repo || !authLoaded) {
     return (
-      <div className="continuum-shell continuum-loading">
+      <div className="continuum-shell continuum-loading" data-theme={appearanceMode}>
         <p>Cargando biblioteca…</p>
       </div>
     )
@@ -1524,7 +1545,7 @@ export default function App() {
 
   if (!authSession) {
     return (
-      <div className="continuum-shell continuum-auth-shell">
+      <div className="continuum-shell continuum-auth-shell" data-theme={appearanceMode}>
         <form className="continuum-login" onSubmit={handleLogin}>
           <h1>Continuum</h1>
           <label>
@@ -1567,7 +1588,7 @@ export default function App() {
 
   if (!selectedId) {
     return (
-      <div className="continuum-shell">
+      <div className="continuum-shell" data-theme={appearanceMode}>
         {sidebarVisible ? (
           <>
           <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
@@ -1645,7 +1666,7 @@ export default function App() {
 
   if (!fullNote) {
     return (
-      <div className="continuum-shell continuum-loading">
+      <div className="continuum-shell continuum-loading" data-theme={appearanceMode}>
         <p>Cargando nota…</p>
       </div>
     )
@@ -1666,7 +1687,7 @@ export default function App() {
   const retryTime = formatRetryTime(syncStatus?.nextRetryAt ?? null)
 
   return (
-    <div className="continuum-shell">
+    <div className="continuum-shell" data-theme={appearanceMode}>
       {sidebarVisible ? (
         <>
         <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
@@ -1809,6 +1830,7 @@ export default function App() {
         <ContinuumEditorMenu
           activeCitation={activeCitation}
           activeReferenceInsert={activeReferenceInsert}
+          appearanceMode={appearanceMode}
           canCreateCitation={canCreateCitation}
           canCreateInlineMath={canCreateInlineMath}
           canCreateReferenceInsert={canCreateReferenceInsert}
@@ -1859,6 +1881,7 @@ export default function App() {
           onRemoveCitation={() => removeCitationFromSelection(editorRef.current)}
           onRestore={handleRestore}
           onRetrySync={handleRetrySyncNow}
+          onSetAppearanceMode={handleSetAppearanceMode}
           onSetOffline={setOffline}
           onTrash={handleTrash}
           onMarkAllParagraphsAsAphorisms={() =>
