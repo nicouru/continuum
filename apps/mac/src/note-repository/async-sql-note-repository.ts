@@ -30,6 +30,14 @@ function nowIso() {
   return new Date().toISOString()
 }
 
+function shouldQueueSync(state: NoteSyncState) {
+  return state === "dirty" || state === "error" || state === "offline"
+}
+
+function syncQueuePayload(noteId: string, localVersion: number) {
+  return JSON.stringify({ localVersion, noteId, queuedAt: nowIso() })
+}
+
 function parseJsonDraft(raw: string): StructuredNoteDraft {
   return normalizeStructuredNoteDraft(JSON.parse(raw) as StructuredNoteDraft)
 }
@@ -39,6 +47,7 @@ export async function migrateAsyncSql(db: AsyncSqlDatabase) {
   for (const statement of splitSqlStatements(INITIAL_MIGRATION_SQL)) {
     await db.execute(statement)
   }
+  await db.execute(`UPDATE notes SET sync_state = 'error' WHERE sync_state = 'syncing'`)
 }
 
 function metaRow(row: Record<string, unknown>): NoteMeta {
@@ -142,10 +151,50 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
     }
   }
 
+  async function enqueueSync(noteId: string, localVersion: number) {
+    await db.execute(
+      dollarizeQuestionMarks(`DELETE FROM sync_queue WHERE note_id = ?`),
+      [noteId],
+    )
+    await db.execute(
+      dollarizeQuestionMarks(`
+        INSERT INTO sync_queue (note_id, payload, created_at, attempt_count, last_error)
+        VALUES (?, ?, ?, 0, NULL)
+      `),
+      [noteId, syncQueuePayload(noteId, localVersion), nowIso()],
+    )
+  }
+
+  async function clearSyncQueue(noteId: string) {
+    await db.execute(
+      dollarizeQuestionMarks(`DELETE FROM sync_queue WHERE note_id = ?`),
+      [noteId],
+    )
+  }
+
   return {
     async listDirtyIds(): Promise<string[]> {
       const rows = await db.select<{ id: string }>(
-        `SELECT id FROM notes WHERE sync_state IN ('dirty', 'error')`,
+        `
+          SELECT DISTINCT n.id
+          FROM notes n
+          LEFT JOIN sync_queue q ON q.note_id = n.id
+          WHERE n.sync_state IN ('dirty', 'error', 'offline')
+            AND (
+              q.id IS NULL
+              OR q.attempt_count <= 0
+              OR (
+                CAST(strftime('%s', 'now') AS INTEGER) - CAST(strftime('%s', q.created_at) AS INTEGER)
+              ) >= CASE
+                WHEN q.attempt_count = 1 THEN 10
+                WHEN q.attempt_count = 2 THEN 30
+                WHEN q.attempt_count = 3 THEN 60
+                WHEN q.attempt_count = 4 THEN 120
+                ELSE 300
+              END
+            )
+          ORDER BY COALESCE(q.created_at, n.updated_at) ASC
+        `,
       )
       return rows.map((row) => String(row.id))
     },
@@ -254,6 +303,11 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       ])
 
       await rebuildIndexes(draft.id, draft)
+      if (shouldQueueSync(nextSyncState)) {
+        await enqueueSync(draft.id, localVersion)
+      } else if (nextSyncState === "synced") {
+        await clearSyncQueue(draft.id)
+      }
 
       const rowAfter = await fetchFull(draft.id)
       if (!rowAfter) {
@@ -311,6 +365,10 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       `),
         [nowIso(), nowIso(), noteId],
       )
+      const note = await this.getNoteById(noteId)
+      if (note) {
+        await enqueueSync(noteId, note.localVersion)
+      }
     },
 
     async restoreFromTrash(noteId: string): Promise<void> {
@@ -322,6 +380,10 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       `),
         [nowIso(), noteId],
       )
+      const note = await this.getNoteById(noteId)
+      if (note) {
+        await enqueueSync(noteId, note.localVersion)
+      }
     },
 
     async applyRemoteSynced(input: {
@@ -366,12 +428,40 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         ],
       )
       await rebuildIndexes(input.noteId, draft)
+      await clearSyncQueue(input.noteId)
     },
 
     async markSyncState(noteId: string, state: NoteSyncState): Promise<void> {
       await db.execute(
         dollarizeQuestionMarks(`UPDATE notes SET sync_state = ?, updated_at = ? WHERE id = ?`),
         [state, nowIso(), noteId],
+      )
+    },
+
+    async recordSyncFailure(noteId: string, error: unknown): Promise<void> {
+      const rows = await db.select<{ attemptCount: number | null }>(
+        dollarizeQuestionMarks(
+          `SELECT MAX(attempt_count) AS attemptCount FROM sync_queue WHERE note_id = ?`,
+        ),
+        [noteId],
+      )
+      const attemptCount = Number(rows[0]?.attemptCount ?? 0) + 1
+      await db.execute(
+        dollarizeQuestionMarks(`DELETE FROM sync_queue WHERE note_id = ?`),
+        [noteId],
+      )
+      await db.execute(
+        dollarizeQuestionMarks(`
+        INSERT INTO sync_queue (note_id, payload, created_at, attempt_count, last_error)
+        VALUES (?, ?, ?, ?, ?)
+      `),
+        [
+          noteId,
+          JSON.stringify({ attemptCount, failedAt: nowIso(), noteId }),
+          nowIso(),
+          attemptCount,
+          errorMessage(error),
+        ],
       )
     },
 
@@ -388,6 +478,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       `),
         [id, noteId, nowIso(), JSON.stringify(local), JSON.stringify(remote)],
       )
+      await clearSyncQueue(noteId)
       await db.execute(
         dollarizeQuestionMarks(`UPDATE notes SET sync_state = ?, updated_at = ? WHERE id = ?`),
         ["conflict", nowIso(), noteId],
@@ -397,3 +488,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
 }
 
 export type AsyncSqlNoteRepository = ReturnType<typeof createAsyncSqlNoteRepository>
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}

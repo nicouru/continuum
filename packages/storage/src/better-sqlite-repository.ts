@@ -23,10 +23,19 @@ export function migrateBetterSqlite(db: Database.Database) {
   for (const statement of splitSqlStatements(INITIAL_MIGRATION_SQL)) {
     db.exec(`${statement};`)
   }
+  db.exec(`UPDATE notes SET sync_state = 'error' WHERE sync_state = 'syncing';`)
 }
 
 function nowIso() {
   return new Date().toISOString()
+}
+
+function shouldQueueSync(state: NoteSyncState) {
+  return state === "dirty" || state === "error" || state === "offline"
+}
+
+function syncQueuePayload(noteId: string, localVersion: number) {
+  return JSON.stringify({ localVersion, noteId, queuedAt: nowIso() })
 }
 
 function parseJsonDraft(raw: string): StructuredNoteDraft {
@@ -109,6 +118,18 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
     }
   }
 
+  function enqueueSync(noteId: string, localVersion: number) {
+    db.prepare(`DELETE FROM sync_queue WHERE note_id = ?`).run(noteId)
+    db.prepare(`
+      INSERT INTO sync_queue (note_id, payload, created_at, attempt_count, last_error)
+      VALUES (?, ?, ?, 0, NULL)
+    `).run(noteId, syncQueuePayload(noteId, localVersion), nowIso())
+  }
+
+  function clearSyncQueue(noteId: string) {
+    db.prepare(`DELETE FROM sync_queue WHERE note_id = ?`).run(noteId)
+  }
+
   function metaRow(row: Record<string, unknown>): NoteMeta {
     return {
       id: String(row.id),
@@ -143,7 +164,26 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
     listDirtyIds(): string[] {
       const rows = db
         .prepare(
-          `SELECT id FROM notes WHERE sync_state IN ('dirty', 'error')`,
+          `
+          SELECT DISTINCT n.id
+          FROM notes n
+          LEFT JOIN sync_queue q ON q.note_id = n.id
+          WHERE n.sync_state IN ('dirty', 'error', 'offline')
+            AND (
+              q.id IS NULL
+              OR q.attempt_count <= 0
+              OR (
+                CAST(strftime('%s', 'now') AS INTEGER) - CAST(strftime('%s', q.created_at) AS INTEGER)
+              ) >= CASE
+                WHEN q.attempt_count = 1 THEN 10
+                WHEN q.attempt_count = 2 THEN 30
+                WHEN q.attempt_count = 3 THEN 60
+                WHEN q.attempt_count = 4 THEN 120
+                ELSE 300
+              END
+            )
+          ORDER BY COALESCE(q.created_at, n.updated_at) ASC
+        `,
         )
         .all() as { id: string }[]
       return rows.map((row) => String(row.id))
@@ -252,6 +292,11 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         row.excerpt,
       ])
       rebuildIndexes(draft.id, draft)
+      if (shouldQueueSync(nextSyncState)) {
+        enqueueSync(draft.id, localVersion)
+      } else if (nextSyncState === "synced") {
+        clearSyncQueue(draft.id)
+      }
 
       const rowAfter = selectFull.get(draft.id) as Record<string, unknown> | undefined
       if (!rowAfter) {
@@ -290,6 +335,10 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         WHERE id = ?
       `,
       ).run(nowIso(), nowIso(), noteId)
+      const note = this.getNoteById(noteId)
+      if (note) {
+        enqueueSync(noteId, note.localVersion)
+      }
     },
 
     restoreFromTrash(noteId: string) {
@@ -300,6 +349,10 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         WHERE id = ?
       `,
       ).run(nowIso(), noteId)
+      const note = this.getNoteById(noteId)
+      if (note) {
+        enqueueSync(noteId, note.localVersion)
+      }
     },
 
     applyRemoteSynced(input: {
@@ -342,6 +395,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         input.noteId,
       )
       rebuildIndexes(input.noteId, draft)
+      clearSyncQueue(input.noteId)
     },
 
     markSyncState(noteId: string, state: NoteSyncState) {
@@ -349,6 +403,26 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         state,
         nowIso(),
         noteId,
+      )
+    },
+
+    recordSyncFailure(noteId: string, error: unknown) {
+      const row = db
+        .prepare(
+          `SELECT MAX(attempt_count) AS attemptCount FROM sync_queue WHERE note_id = ?`,
+        )
+        .get(noteId) as { attemptCount: number | null } | undefined
+      const attemptCount = Number(row?.attemptCount ?? 0) + 1
+      db.prepare(`DELETE FROM sync_queue WHERE note_id = ?`).run(noteId)
+      db.prepare(`
+        INSERT INTO sync_queue (note_id, payload, created_at, attempt_count, last_error)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        noteId,
+        JSON.stringify({ attemptCount, failedAt: nowIso(), noteId }),
+        nowIso(),
+        attemptCount,
+        errorMessage(error),
       )
     },
 
@@ -360,6 +434,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         VALUES (?, ?, ?, ?, ?, 0)
       `,
       ).run(id, noteId, nowIso(), JSON.stringify(local), JSON.stringify(remote))
+      clearSyncQueue(noteId)
       this.markSyncState(noteId, "conflict")
     },
   }
@@ -373,4 +448,8 @@ export function emergencyIsNewer(
 ): boolean {
   const noteMs = Date.parse(noteUpdatedAtIso)
   return Number.isFinite(noteMs) && emergency.savedAtMs > noteMs
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
 }

@@ -48,10 +48,11 @@ describe("DraftSyncEngine", () => {
       pollDirtyIds: async () => ["note-1"],
     })
 
-    await engine.syncNote("note-1")
+    const result = await engine.syncNote("note-1")
 
     expect(states).toEqual(["syncing", "error"])
     expect(errors).toHaveLength(1)
+    expect(result.status).toBe("error")
   })
 
   it("surfaces server revision conflicts without marking generic error", async () => {
@@ -84,10 +85,11 @@ describe("DraftSyncEngine", () => {
       pollDirtyIds: async () => ["note-1"],
     })
 
-    await engine.syncNote("note-1")
+    const result = await engine.syncNote("note-1")
 
     expect(states).toEqual(["syncing"])
     expect(conflicts).toHaveLength(1)
     expect(errors).toHaveLength(0)
+    expect(result.status).toBe("conflict")
   })
 })

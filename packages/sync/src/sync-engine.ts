@@ -27,6 +27,13 @@ export type SyncEngineDeps = {
   isOffline: () => boolean
 }
 
+export type SyncAttemptResult =
+  | { status: "success"; remoteVersion: number }
+  | { status: "offline" }
+  | { status: "skipped" }
+  | { status: "conflict"; error: unknown }
+  | { status: "error"; error: unknown }
+
 export class DraftSyncEngine {
   private readonly inFlight = new Set<string>()
   private timer: ReturnType<typeof setInterval> | null = null
@@ -65,33 +72,37 @@ export class DraftSyncEngine {
     }
   }
 
-  async syncNote(noteId: string) {
+  async syncNote(noteId: string): Promise<SyncAttemptResult> {
     if (this.inFlight.has(noteId)) {
-      return
+      return { status: "skipped" }
     }
 
     this.inFlight.add(noteId)
 
     try {
-      await this.syncNoteOnce(noteId)
+      return await this.syncNoteOnce(noteId)
     } finally {
       this.inFlight.delete(noteId)
     }
   }
 
-  private async syncNoteOnce(noteId: string) {
+  private async syncNoteOnce(noteId: string): Promise<SyncAttemptResult> {
     if (this.deps.isOffline()) {
       await this.deps.markState(noteId, "offline")
-      return
+      return { status: "offline" }
     }
 
     const note = await this.deps.loadNote(noteId)
     if (!note || note.syncState === "conflict") {
-      return
+      return { status: "skipped" }
     }
 
-    if (note.syncState !== "dirty" && note.syncState !== "error") {
-      return
+    if (
+      note.syncState !== "dirty" &&
+      note.syncState !== "error" &&
+      note.syncState !== "offline"
+    ) {
+      return { status: "skipped" }
     }
 
     try {
@@ -105,8 +116,9 @@ export class DraftSyncEngine {
           syncState: note.syncState as NoteSyncState,
         })
       ) {
-        await this.deps.onConflict(noteId, new Error("REMOTE_AHEAD"))
-        return
+        const error = new Error("REMOTE_AHEAD")
+        await this.deps.onConflict(noteId, error)
+        return { error, status: "conflict" }
       }
 
       await this.deps.markState(noteId, "syncing")
@@ -120,14 +132,16 @@ export class DraftSyncEngine {
         tiptapJson: note.tiptapJson,
       })
       await this.deps.applyRemoteSuccess(note.id, result.remoteVersion)
+      return { remoteVersion: result.remoteVersion, status: "success" }
     } catch (error) {
       if (isRemoteConflict(error)) {
         await this.deps.onConflict(noteId, error)
-        return
+        return { error, status: "conflict" }
       }
 
       await this.deps.markState(noteId, "error")
       await this.deps.onError?.(noteId, error)
+      return { error, status: "error" }
     }
   }
 }

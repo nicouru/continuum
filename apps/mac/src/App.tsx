@@ -255,19 +255,34 @@ export default function App() {
         },
         applyRemoteSuccess: async (noteId, remoteVersion) => {
           await repo.applyRemoteSynced({ noteId, remoteVersion })
+          setSyncLabel(
+            remote.mode === "http" ? "Sincronizado online" : "Sincronizado (mock)",
+          )
           await refreshList()
           if (noteId === selectedRef.current) {
             const next = await repo.getNoteById(noteId)
             setFullNote(next)
           }
         },
-        markState: (noteId, state) => repo.markSyncState(noteId, state as never),
+        markState: async (noteId, state) => {
+          await repo.markSyncState(noteId, state as never)
+          if (state === "syncing") {
+            setSyncLabel("Subiendo a Diario...")
+          }
+          if (state === "offline") {
+            setSyncLabel("Sin conexión")
+          }
+          if (state === "error") {
+            setSyncLabel("Pendiente de reintento")
+          }
+        },
         onConflict: async (noteId) => {
           const local = await repo.getNoteById(noteId)
           await repo.recordConflict(noteId, local, { remoteAhead: true })
           setSyncLabel("Conflicto remoto")
         },
-        onError: async () => {
+        onError: async (noteId, error) => {
+          await repo.recordSyncFailure(noteId, error)
           setSyncLabel(
             remote.mode === "http" ? "Error sync Diario" : "Error sync mock",
           )
@@ -311,15 +326,21 @@ export default function App() {
       })
       if (options.manual) {
         setSyncLabel(offline ? "Borrador local" : "Sincronizando…")
-        await engineRef.current?.syncNote(selectedId)
+        const result = await engineRef.current?.syncNote(selectedId)
         await clearEmergencyDraft()
-        setSyncLabel(
-          offline
-            ? "Sin conexión"
-            : remote.mode === "http"
-              ? "Sincronizado online"
-              : "Sincronizado (mock)",
-        )
+        if (!result || result.status === "skipped") {
+          setSyncLabel("Guardado local")
+        } else if (result.status === "offline") {
+          setSyncLabel("Sin conexión")
+        } else if (result.status === "success") {
+          setSyncLabel(
+            remote.mode === "http" ? "Sincronizado online" : "Sincronizado (mock)",
+          )
+        } else if (result.status === "conflict") {
+          setSyncLabel("Conflicto remoto")
+        } else {
+          setSyncLabel("Pendiente de reintento")
+        }
       } else {
         setSyncLabel(offline ? "Sin conexión" : "Guardado")
         await clearEmergencyDraft()
@@ -333,7 +354,7 @@ export default function App() {
         setFullNote(saved)
       }
     },
-    [deviceId, offline, refreshList, repo, selectedId],
+    [deviceId, offline, refreshList, remote.mode, repo, selectedId],
   )
 
   const scheduleAutosave = useCallback(
