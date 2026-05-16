@@ -11,6 +11,66 @@
   padding: 24px;
 }
 
+.continuum-auth-shell {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.continuum-login {
+  width: min(380px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #10141c;
+}
+
+.continuum-login h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.continuum-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #aeb7c8;
+  font-size: 12px;
+}
+
+.continuum-login input {
+  border-radius: 6px;
+  border: 1px solid #30394d;
+  background: #111722;
+  color: #eef2fb;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.continuum-login button,
+.continuum-logout {
+  border-radius: 6px;
+  border: 1px solid #364566;
+  background: #1d2638;
+  color: #eef2fb;
+  cursor: pointer;
+}
+
+.continuum-login button {
+  padding: 10px;
+}
+
+.continuum-login-error {
+  margin: 0;
+  color: #ffb4b4;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .continuum-error {
   color: #ffb4b4;
 }
@@ -114,6 +174,11 @@
   background: #1d2638;
   color: #eef2fb;
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.56;
 }
 
 .continuum-show-sidebar {
@@ -231,6 +296,11 @@
   color: #6f7b91;
   font-size: 11px;
   text-align: right;
+}
+
+.continuum-logout {
+  padding: 5px 8px;
+  font-size: 11px;
 }
 
 .continuum-editor-root {

@@ -5,6 +5,7 @@ import {
   type DraftRemoteClient,
   type FetchLike,
 } from "@continuum/sync"
+import type { DiarioAuthSession } from "./auth"
 
 export type ContinuumSyncClient = {
   client: DraftRemoteClient
@@ -12,11 +13,15 @@ export type ContinuumSyncClient = {
   mode: "http" | "mock"
 }
 
-export function createContinuumSyncClient(): ContinuumSyncClient {
-  const baseUrl = import.meta.env.VITE_DIARIO_ADMIN_BASE_URL?.trim()
+export function createContinuumSyncClient(
+  session: DiarioAuthSession | null,
+): ContinuumSyncClient {
+  const envCookie = import.meta.env.VITE_DIARIO_ADMIN_SESSION_COOKIE?.trim()
+  const baseUrl = session?.baseUrl || import.meta.env.VITE_DIARIO_ADMIN_BASE_URL?.trim()
+  const sessionCookie = session?.sessionCookie || envCookie
 
-  if (!baseUrl) {
-    return createMockSyncClient()
+  if (!baseUrl || !sessionCookie) {
+    return createMockSyncClient("login requerido")
   }
 
   let origin: string
@@ -33,7 +38,7 @@ export function createContinuumSyncClient(): ContinuumSyncClient {
       bearerToken: import.meta.env.VITE_DIARIO_ADMIN_BEARER_TOKEN?.trim(),
       fetchImpl: tauriFetch as FetchLike,
       origin,
-      sessionCookie: import.meta.env.VITE_DIARIO_ADMIN_SESSION_COOKIE?.trim(),
+      sessionCookie,
     }),
     label: origin,
     mode: "http",

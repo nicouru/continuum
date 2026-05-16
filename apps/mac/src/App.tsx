@@ -18,7 +18,17 @@ import {
 } from "@continuum/editor"
 import type { NoteFull, NoteMeta } from "@continuum/storage/types"
 import { DraftSyncEngine } from "@continuum/sync"
+import type { FormEvent } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  clearDiarioAuthSession,
+  getConfiguredDiarioBaseUrl,
+  loginToDiario,
+  logoutFromDiario,
+  readDiarioAuthSession,
+  saveDiarioAuthSession,
+  type DiarioAuthSession,
+} from "./auth"
 import { openContinuumRepository } from "./bootstrap-db"
 import {
   clearEmergencyDraft,
@@ -53,6 +63,14 @@ export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
   const [bootstrapError, setBootstrapError] = useState<string | null>(null)
+  const [authSession, setAuthSession] = useState<DiarioAuthSession | null>(null)
+  const [authLoaded, setAuthLoaded] = useState(false)
+  const [loginBaseUrl, setLoginBaseUrl] = useState(getConfiguredDiarioBaseUrl())
+  const [loginEmail, setLoginEmail] = useState("")
+  const [loginPassword, setLoginPassword] = useState("")
+  const [loginError, setLoginError] = useState<string | null>(null)
+  const [loginSubmitting, setLoginSubmitting] = useState(false)
+  const [creatingNote, setCreatingNote] = useState(false)
 
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [folder, setFolder] = useState<"all" | "trash">("all")
@@ -75,7 +93,7 @@ export default function App() {
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedId
 
-  const remote = useMemo(() => createContinuumSyncClient(), [])
+  const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const engineRef = useRef<DraftSyncEngine | null>(null)
 
   const refreshList = useCallback(async () => {
@@ -111,12 +129,16 @@ export default function App() {
         const devId = await nextRepo.ensureDeviceId()
         step = "leer preferencias locales"
         const prefs = await readPreferences()
+        step = "leer sesion de Diario"
+        const session = await readDiarioAuthSession()
         if (!active) {
           return
         }
         setRepo(nextRepo)
         setDeviceId(devId)
         setSidebarVisible(prefs.sidebarVisible)
+        setAuthSession(session)
+        setAuthLoaded(true)
         step = "leer biblioteca local"
         const list = await nextRepo.listNotesMeta({ folder: "all" })
         if (!active) {
@@ -165,6 +187,7 @@ export default function App() {
         console.error(error)
         if (active) {
           setBootstrapError(`${step}: ${bootstrapErrorMessage(error)}`)
+          setAuthLoaded(true)
         }
       }
     })()
@@ -174,7 +197,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!repo) {
+    if (!repo || !authSession) {
       return
     }
     void refreshList()
@@ -258,7 +281,7 @@ export default function App() {
       engine.stop()
       engineRef.current = null
     }
-  }, [remote, repo, refreshList])
+  }, [authSession, remote, repo, refreshList])
 
   const flushAutosaveTimer = () => {
     if (debounceRef.current) {
@@ -349,22 +372,59 @@ export default function App() {
   }
 
   const handleCreateNote = async () => {
-    if (!repo || !deviceId) {
+    if (!repo || !deviceId || creatingNote) {
       return
     }
-    const draft = createNewStructuredNoteDraft(new Date(), [])
-    const prototype = continuumBootstrapPrototype(draft)
-    const saved = await repo.saveNote({
-      bumpLocalVersion: true,
-      deviceId,
-      structuredDraft: draft,
-      slug: draft.id,
-      syncState: offline ? "offline" : "dirty",
-      tiptapJson: prototype.tiptap,
-    })
-    setFolder("all")
-    setSelectedId(saved.id)
-    await refreshList()
+    setCreatingNote(true)
+    try {
+      const draft = createNewStructuredNoteDraft(new Date(), [])
+      const prototype = continuumBootstrapPrototype(draft)
+      const saved = await repo.saveNote({
+        bumpLocalVersion: true,
+        deviceId,
+        structuredDraft: draft,
+        slug: draft.id,
+        syncState: offline ? "offline" : "dirty",
+        tiptapJson: prototype.tiptap,
+      })
+      setFolder("all")
+      setSelectedId(saved.id)
+      await refreshList()
+    } finally {
+      setCreatingNote(false)
+    }
+  }
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setLoginError(null)
+    setLoginSubmitting(true)
+    try {
+      const session = await loginToDiario({
+        baseUrl: loginBaseUrl,
+        email: loginEmail,
+        password: loginPassword,
+      })
+      await saveDiarioAuthSession(session)
+      setAuthSession(session)
+      setLoginBaseUrl(session.baseUrl)
+      setLoginPassword("")
+      setSyncLabel("Listo")
+    } catch (error) {
+      setLoginError(bootstrapErrorMessage(error))
+    } finally {
+      setLoginSubmitting(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    const session = authSession
+    setAuthSession(null)
+    setSyncLabel("Listo")
+    await clearDiarioAuthSession()
+    if (session) {
+      await logoutFromDiario(session).catch(() => undefined)
+    }
   }
 
   const handleManualSave = async () => {
@@ -432,10 +492,53 @@ export default function App() {
     )
   }
 
-  if (!repo) {
+  if (!repo || !authLoaded) {
     return (
       <div className="continuum-shell continuum-loading">
         <p>Cargando biblioteca…</p>
+      </div>
+    )
+  }
+
+  if (!authSession) {
+    return (
+      <div className="continuum-shell continuum-auth-shell">
+        <form className="continuum-login" onSubmit={handleLogin}>
+          <h1>Continuum</h1>
+          <label>
+            Diario
+            <input
+              type="url"
+              value={loginBaseUrl}
+              onChange={(event) => setLoginBaseUrl(event.target.value)}
+              autoComplete="url"
+            />
+          </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={loginEmail}
+              onChange={(event) => setLoginEmail(event.target.value)}
+              autoComplete="username"
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          {loginError ? <p className="continuum-login-error">{loginError}</p> : null}
+          <button type="submit" disabled={loginSubmitting}>
+            {loginSubmitting ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
       </div>
     )
   }
@@ -468,7 +571,12 @@ export default function App() {
               </button>
             </nav>
             <div className="continuum-list" />
-            <button type="button" className="continuum-new-note" onClick={handleCreateNote}>
+            <button
+              type="button"
+              className="continuum-new-note"
+              disabled={creatingNote}
+              onClick={handleCreateNote}
+            >
               Nueva nota
             </button>
           </aside>
@@ -484,8 +592,8 @@ export default function App() {
         )}
         <main className="continuum-main continuum-empty">
           <p>No hay notas seleccionadas.</p>
-          <button type="button" onClick={handleCreateNote}>
-            Crear nota
+          <button type="button" disabled={creatingNote} onClick={handleCreateNote}>
+            {creatingNote ? "Creando…" : "Crear nota"}
           </button>
         </main>
       </div>
@@ -543,7 +651,12 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button type="button" className="continuum-new-note" onClick={handleCreateNote}>
+          <button
+            type="button"
+            className="continuum-new-note"
+            disabled={creatingNote}
+            onClick={handleCreateNote}
+          >
             Nueva nota
           </button>
         </aside>
@@ -640,6 +753,9 @@ export default function App() {
             <span className="continuum-sync-source" title={`Sync: ${remote.label}`}>
               {remote.mode === "http" ? "Diario" : "Mock"}
             </span>
+            <button type="button" className="continuum-logout" onClick={handleLogout}>
+              Salir
+            </button>
           </div>
         </header>
 
