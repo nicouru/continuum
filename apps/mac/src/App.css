@@ -4,8 +4,11 @@
   background: #050505;
   color: #e8e8e8;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
 .continuum-loading,
@@ -91,7 +94,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: uppercase;
   border-bottom: 1px solid #2f2f2f;
@@ -120,6 +124,7 @@
   padding: 8px;
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
 }
 
 .continuum-folders button.active {
@@ -162,6 +167,7 @@
 
 .continuum-list-title {
   font-size: 13px;
+  font-weight: 500;
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -205,6 +211,8 @@
   background: #151515;
   color: #eeeeee;
   cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 button:disabled {
@@ -320,6 +328,7 @@ button:disabled {
   min-height: 480px;
   padding: 16px 20px 48px;
   font-size: 17px;
+  font-weight: 400;
   line-height: 1.55;
 }
 
@@ -364,8 +373,12 @@ button:disabled {
   background: #050505;
   box-shadow: 0 18px 55px rgb(0 0 0 / 0.62);
   color: #ededed;
-  font-size: 12px;
-  line-height: 1.35;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
+    sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1.22;
 }
 
 .continuum-menu-header {
@@ -379,7 +392,8 @@ button:disabled {
   border-bottom: 1px solid #333333;
   background: #050505;
   color: #cfcfcf;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .continuum-menu-header button {
@@ -387,7 +401,8 @@ button:disabled {
   border-radius: 5px;
   background: #121212;
   color: #a8a8a8;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   padding: 3px 6px;
   cursor: pointer;
 }
@@ -400,11 +415,12 @@ button:disabled {
   display: grid;
   grid-template-columns: 28px 1fr 18px;
   align-items: center;
-  min-height: 32px;
+  min-height: 31px;
   padding: 0 8px;
   color: #c9c9c9;
   cursor: pointer;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   list-style: none;
 }
 
@@ -443,7 +459,7 @@ button:disabled {
   background: transparent;
   color: #e8e8e8;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   text-align: left;
   padding: 5px 8px;
@@ -467,7 +483,7 @@ button:disabled {
   height: 20px;
   color: #d7d7d7;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -483,6 +499,7 @@ button:disabled {
   margin: 0;
   color: #9d9d9d;
   font-size: 12px;
+  line-height: 1.32;
 }
 
 .continuum-menu-field {
@@ -504,6 +521,8 @@ button:disabled {
   background: #090909;
   color: #eeeeee;
   font: inherit;
+  font-size: 13px;
+  font-weight: 400;
   padding: 6px 7px;
 }
 
@@ -534,12 +553,13 @@ button:disabled {
 .continuum-menu-subtitle {
   color: #9d9d9d;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .continuum-reference-summary strong {
   color: #f0f0f0;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .continuum-reference-summary p {
@@ -547,7 +567,8 @@ button:disabled {
   margin: 2px 0 0;
   overflow: hidden;
   color: #b8b8b8;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.32;
 }
 
 .continuum-menu-status {
@@ -566,11 +587,13 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #eeeeee;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .continuum-menu-status small {
   color: #a2a2a2;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -579,5 +602,6 @@ button:disabled {
   align-items: center;
   gap: 7px;
   color: #d4d4d4;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
 }
