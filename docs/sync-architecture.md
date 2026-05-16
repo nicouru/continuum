@@ -53,8 +53,10 @@ The current implementation follows this shape for the core path: it saves
 locally after the editor debounce, stores pending work in a persistent
 `sync_queue`, runs a periodic dirty flush every 15 s, sends manual saves
 immediately, retries failed sync with backoff, and prevents concurrent sync
-requests for the same note. It still needs explicit app-close, note-switch and
-foreground/background flush hooks.
+requests for the same note. It also flushes pending autosave/sync work on window
+focus, network regain, visibility return, and page hide. Native app-close hooks
+can still be tightened later if Tauri-specific lifecycle handling becomes
+necessary.
 
 ## Cross-Device Expectations
 
