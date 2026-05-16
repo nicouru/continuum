@@ -7,9 +7,17 @@ import {
 } from "@continuum/core"
 import {
   cloneStructuredDraftForLocalDuplicate,
+  errorMessage,
+  fullRow,
+  getNextRetryAt,
   INITIAL_MIGRATION_SQL,
+  metaRow,
+  nowIso,
+  parseUnknownJson,
+  shouldQueueSync,
   splitSqlStatements,
   dollarizeQuestionMarks,
+  syncQueuePayload,
 } from "@continuum/storage"
 import type {
   NoteDbStatus,
@@ -29,75 +37,12 @@ export type AsyncSqlDatabase = {
   ) => Promise<T[]>
 }
 
-function nowIso() {
-  return new Date().toISOString()
-}
-
-function shouldQueueSync(state: NoteSyncState) {
-  return state === "dirty" || state === "error" || state === "offline"
-}
-
-function syncQueuePayload(noteId: string, localVersion: number) {
-  return JSON.stringify({ localVersion, noteId, queuedAt: nowIso() })
-}
-
-function retryDelaySeconds(attemptCount: number) {
-  if (attemptCount <= 0) {
-    return 0
-  }
-  if (attemptCount === 1) {
-    return 10
-  }
-  if (attemptCount === 2) {
-    return 30
-  }
-  if (attemptCount === 3) {
-    return 60
-  }
-  if (attemptCount === 4) {
-    return 120
-  }
-  return 300
-}
-
-function parseJsonDraft(raw: string): StructuredNoteDraft {
-  return normalizeStructuredNoteDraft(JSON.parse(raw) as StructuredNoteDraft)
-}
-
 export async function migrateAsyncSql(db: AsyncSqlDatabase) {
   await db.execute("PRAGMA foreign_keys = ON")
   for (const statement of splitSqlStatements(INITIAL_MIGRATION_SQL)) {
     await db.execute(statement)
   }
   await db.execute(`UPDATE notes SET sync_state = 'error' WHERE sync_state = 'syncing'`)
-}
-
-function metaRow(row: Record<string, unknown>): NoteMeta {
-  return {
-    id: String(row.id),
-    slug: String(row.slug),
-    status: row.status as NoteDbStatus,
-    title: String(row.title ?? ""),
-    writtenAt: String(row.writtenAt),
-    createdAt: String(row.createdAt),
-    updatedAt: String(row.updatedAt),
-    deletedAt: row.deletedAt ? String(row.deletedAt) : null,
-    excerpt: String(row.excerpt ?? ""),
-    localVersion: Number(row.localVersion ?? 0),
-    remoteVersion: Number(row.remoteVersion ?? 0),
-    syncState: row.syncState as NoteSyncState,
-    lastSyncedAt: row.lastSyncedAt ? String(row.lastSyncedAt) : null,
-  }
-}
-
-function fullRow(row: Record<string, unknown>): NoteFull {
-  return {
-    ...metaRow(row),
-    structuredDraft: parseJsonDraft(String(row.structuredDraftJson)),
-    tiptapJson: JSON.parse(String(row.tiptapJson)),
-    plainText: String(row.plainText ?? ""),
-    deviceId: String(row.deviceId ?? ""),
-  }
 }
 
 const SELECT_FULL_SQL = `
@@ -644,35 +589,3 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
 }
 
 export type AsyncSqlNoteRepository = ReturnType<typeof createAsyncSqlNoteRepository>
-
-function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error)
-}
-
-function getNextRetryAt(
-  rows: Array<{ attemptCount: number; createdAt: string }>,
-): string | null {
-  const candidates = rows
-    .map((row) => {
-      const createdMs = Date.parse(row.createdAt)
-      if (!Number.isFinite(createdMs)) {
-        return null
-      }
-      return new Date(createdMs + retryDelaySeconds(Number(row.attemptCount)) * 1000)
-    })
-    .filter((value): value is Date => Boolean(value))
-    .sort((left, right) => left.getTime() - right.getTime())
-
-  return candidates[0]?.toISOString() ?? null
-}
-
-function parseUnknownJson(value: unknown) {
-  if (typeof value !== "string") {
-    return value
-  }
-  try {
-    return JSON.parse(value) as unknown
-  } catch {
-    return value
-  }
-}
