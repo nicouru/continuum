@@ -230,6 +230,15 @@ function hasUnpushedLocalState(note: NoteFull) {
   )
 }
 
+function parseOptionalIntegerInput(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+  const parsed = Number(trimmed)
+  return Number.isInteger(parsed) ? parsed : undefined
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -969,8 +978,13 @@ export default function App() {
   const handleAddReference = async (
     input: ContinuumEditorMenuReferenceInput = {
       author: "",
+      authorBirthYear: "",
+      authorDeathYear: "",
       body: "Nueva referencia",
+      edition: "",
+      translator: "",
       work: "",
+      workDate: "",
     },
     mode: "library" | "active-target" = "library",
   ) => {
@@ -982,14 +996,21 @@ export default function App() {
     setCreatingReference(true)
     const refId = makeId("reference")
     const body = input.body.trim() || "Nueva referencia"
+    const authorBirthYear = parseOptionalIntegerInput(input.authorBirthYear)
+    const authorDeathYear = parseOptionalIntegerInput(input.authorDeathYear)
     const nextDraft = normalizeStructuredNoteDraft({
       ...sourceDraft,
       references: [
         ...sourceDraft.references,
         {
           ...(input.author.trim() ? { author: input.author.trim() } : {}),
+          ...(authorBirthYear !== undefined ? { authorBirthYear } : {}),
+          ...(authorDeathYear !== undefined ? { authorDeathYear } : {}),
           body,
+          ...(input.edition.trim() ? { edition: input.edition.trim() } : {}),
+          ...(input.translator.trim() ? { translator: input.translator.trim() } : {}),
           ...(input.work.trim() ? { work: input.work.trim() } : {}),
+          ...(input.workDate.trim() ? { workDate: input.workDate.trim() } : {}),
           id: refId,
         },
       ],

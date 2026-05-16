@@ -538,6 +538,30 @@ button:disabled {
   gap: 7px;
 }
 
+.continuum-reference-details {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 6px 0 2px;
+}
+
+.continuum-reference-details > summary {
+  cursor: pointer;
+  color: #d4d4d4;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.continuum-reference-details[open] > summary {
+  margin-bottom: 7px;
+}
+
+.continuum-menu-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
 .continuum-reference-resolver {
   padding-bottom: 8px;
   border-bottom: 1px solid #252525;

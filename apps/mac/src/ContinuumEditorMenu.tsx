@@ -9,8 +9,13 @@ import { useState } from "react"
 
 export type ContinuumEditorMenuReferenceInput = {
   author: string
+  authorBirthYear: string
+  authorDeathYear: string
   body: string
+  edition: string
+  translator: string
   work: string
+  workDate: string
 }
 
 type ContinuumEditorMenuProps = {
@@ -116,8 +121,13 @@ export function ContinuumEditorMenu({
   const [referenceInput, setReferenceInput] =
     useState<ContinuumEditorMenuReferenceInput>({
       author: "",
+      authorBirthYear: "",
+      authorDeathYear: "",
       body: "",
+      edition: "",
+      translator: "",
       work: "",
+      workDate: "",
     })
   const hasActiveReferenceTarget = Boolean(activeCitation || activeReferenceInsert)
   const style = { left: x, top: y } satisfies CSSProperties
@@ -132,7 +142,16 @@ export function ContinuumEditorMenu({
   ) => {
     event.preventDefault()
     onAddReference(referenceInput, mode)
-    setReferenceInput({ author: "", body: "", work: "" })
+    setReferenceInput({
+      author: "",
+      authorBirthYear: "",
+      authorDeathYear: "",
+      body: "",
+      edition: "",
+      translator: "",
+      work: "",
+      workDate: "",
+    })
   }
 
   return (
@@ -500,6 +519,61 @@ function ReferenceCreateForm({
           onChange={(event) => onChange({ ...input, body: event.currentTarget.value })}
         />
       </label>
+      <details className="continuum-reference-details">
+        <summary>Detalles</summary>
+        <div className="continuum-menu-field-grid">
+          <label className="continuum-menu-field">
+            <span>Fecha obra</span>
+            <input
+              type="text"
+              value={input.workDate}
+              onChange={(event) =>
+                onChange({ ...input, workDate: event.currentTarget.value })
+              }
+            />
+          </label>
+          <label className="continuum-menu-field">
+            <span>Edicion</span>
+            <input
+              type="text"
+              value={input.edition}
+              onChange={(event) =>
+                onChange({ ...input, edition: event.currentTarget.value })
+              }
+            />
+          </label>
+          <label className="continuum-menu-field">
+            <span>Nac.</span>
+            <input
+              type="number"
+              value={input.authorBirthYear}
+              onChange={(event) =>
+                onChange({ ...input, authorBirthYear: event.currentTarget.value })
+              }
+            />
+          </label>
+          <label className="continuum-menu-field">
+            <span>Muerte</span>
+            <input
+              type="number"
+              value={input.authorDeathYear}
+              onChange={(event) =>
+                onChange({ ...input, authorDeathYear: event.currentTarget.value })
+              }
+            />
+          </label>
+        </div>
+        <label className="continuum-menu-field">
+          <span>Traductor</span>
+          <input
+            type="text"
+            value={input.translator}
+            onChange={(event) =>
+              onChange({ ...input, translator: event.currentTarget.value })
+            }
+          />
+        </label>
+      </details>
       <button
         className="continuum-menu-button continuum-menu-button-primary"
         disabled={creatingReference}
