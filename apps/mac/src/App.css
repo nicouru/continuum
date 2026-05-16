@@ -130,29 +130,37 @@
 }
 
 .continuum-sidebar-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
   padding: 14px 12px 12px;
   border-bottom: 1px solid var(--continuum-hairline);
+}
+
+.continuum-sidebar-create {
+  padding: 8px 10px 0;
 }
 
 .continuum-sidebar-footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 4px;
   margin-top: auto;
   padding: 10px 12px 12px;
   border-top: 1px solid var(--continuum-hairline);
 }
 
+.continuum-sidebar-footer-spacer {
+  flex: 1;
+}
+
 .continuum-brand-mark {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  grid-column: 2;
+  justify-content: flex-start;
   min-width: 0;
+  flex: none;
 }
 
 .continuum-brand-mark img {
@@ -160,6 +168,11 @@
   width: 44px;
   height: 44px;
   object-fit: contain;
+  opacity: 0.78;
+}
+
+.continuum-shell[data-theme="light"] .continuum-brand-mark img {
+  opacity: 0.72;
 }
 
 .continuum-brand-mark-light {
@@ -174,9 +187,32 @@
   display: block;
 }
 
-.continuum-sidebar-header .continuum-new-note-button {
-  grid-column: 3;
-  justify-self: end;
+.continuum-folder-chip {
+  border-radius: 6px;
+  border: 1px solid #353535;
+  background: #111111;
+  color: #d8d8d8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 12px;
+}
+
+.continuum-shell[data-theme="light"] .continuum-folder-chip {
+  border-color: rgba(29, 29, 27, 0.14);
+  background: rgba(29, 29, 27, 0.035);
+  color: rgb(0 0 0 / 0.72);
+}
+
+.continuum-folder-chip.active {
+  border-color: #565656;
+  background: #1d1d1d;
+}
+
+.continuum-shell[data-theme="light"] .continuum-folder-chip.active {
+  border-color: rgba(29, 29, 27, 0.2);
+  background: rgba(29, 29, 27, 0.07);
+  color: rgb(0 0 0 / 0.89);
 }
 
 .continuum-icon-button {
@@ -198,34 +234,57 @@
 }
 
 .continuum-new-note-button {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border-color: rgb(255 255 255 / 0.14);
-  background: rgb(255 255 255 / 0.03);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  border-radius: 6px;
+  border: 1px solid #353535;
+  background: #111111;
+  color: #d8d8d8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 12px;
 }
 
 .continuum-shell[data-theme="light"] .continuum-new-note-button {
-  border-color: rgba(29, 29, 27, 0.18);
-  background: rgba(29, 29, 27, 0.03);
+  border-color: rgba(29, 29, 27, 0.14);
+  background: rgba(29, 29, 27, 0.035);
+  color: rgb(0 0 0 / 0.78);
 }
 
 .continuum-new-note-button:hover:not(:disabled) {
-  border-color: rgb(255 255 255 / 0.24);
-  background: rgb(255 255 255 / 0.06);
-  color: #f2f2f2;
+  border-color: #464646;
+  background: #1a1a1a;
+  color: #ededed;
 }
 
 .continuum-shell[data-theme="light"] .continuum-new-note-button:hover:not(:disabled) {
-  border-color: rgba(29, 29, 27, 0.24);
+  border-color: rgba(29, 29, 27, 0.2);
   background: rgba(29, 29, 27, 0.06);
-  color: rgb(0 0 0 / 0.86);
+  color: rgb(0 0 0 / 0.89);
 }
 
 .continuum-new-note-button svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 1.55;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  stroke-width: 1.65;
+}
+
+.continuum-trash-folder-button.active {
+  border-color: #704247;
+  background: #181010;
+  color: #f0c7c7;
+}
+
+.continuum-shell[data-theme="light"] .continuum-trash-folder-button.active {
+  border-color: rgba(139, 52, 52, 0.28);
+  background: rgba(139, 52, 52, 0.08);
+  color: rgb(139 52 52 / 0.92);
 }
 
 .continuum-icon-button:hover:not(:disabled) {
@@ -248,58 +307,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-
-.continuum-folders {
-  display: grid;
-  grid-template-columns: 1fr 38px;
-  gap: 6px;
-  padding: 10px;
-}
-
-.continuum-folders button {
-  border-radius: 6px;
-  border: 1px solid #353535;
-  background: #111111;
-  color: #d8d8d8;
-  padding: 8px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.continuum-shell[data-theme="light"] .continuum-folders button {
-  border-color: rgba(29, 29, 27, 0.14);
-  background: rgba(29, 29, 27, 0.035);
-  color: rgb(0 0 0 / 0.72);
-}
-
-.continuum-folders button[aria-label="Papelera"] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.continuum-folders svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentcolor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.8;
-}
-
-.continuum-folders button.active {
-  border-color: #565656;
-  background: #1d1d1d;
-}
-
-.continuum-shell[data-theme="light"] .continuum-folders button.active {
-  border-color: rgba(29, 29, 27, 0.2);
-  background: rgba(29, 29, 27, 0.07);
-  color: rgb(0 0 0 / 0.89);
 }
 
 .continuum-bulk-actions {
@@ -325,7 +332,7 @@
 .continuum-list {
   flex: 1;
   overflow: auto;
-  padding: 0 8px 12px;
+  padding: 8px 8px 12px;
   display: flex;
   flex-direction: column;
 }
@@ -338,7 +345,7 @@
   border-bottom-color: var(--continuum-hairline);
   background: transparent;
   color: inherit;
-  padding: 10px 18px 11px 10px;
+  padding: 10px 12px 11px 10px;
   cursor: pointer;
   transition:
     border-color 140ms ease,
@@ -452,15 +459,20 @@
   color: rgb(0 0 0 / 0.78);
 }
 
+/* REVERT: quitar la clase --justified del preview para desactivar justificación en tarjetas. */
+.continuum-list-preview.continuum-list-preview--justified {
+  text-align: justify;
+  text-justify: inter-word;
+}
+
 .continuum-list-sync-dot {
   position: absolute;
+  top: 10px;
   right: 10px;
-  bottom: 11px;
-  width: 7px;
-  height: 7px;
+  width: 3.5px;
+  height: 3.5px;
   border-radius: 50%;
   background: #6d6d6d;
-  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
   pointer-events: none;
 }
 
@@ -732,6 +744,8 @@ button:disabled {
   min-height: 0;
   overflow: auto;
   background: var(--continuum-editor-page-bg);
+  /* ~3 líneas extra de aire arriba (19px * 1.35 * 3) sin tocar el documento TipTap. */
+  padding-top: calc(19px * 1.35 * 3);
 }
 
 .continuum-shell[data-theme="light"] .continuum-editor-surface {
@@ -952,6 +966,7 @@ button:disabled {
 
 .continuum-editor-menu {
   position: fixed;
+  width: min(430px, calc(100vw - 20px));
   max-height: calc(100vh - 20px);
   overflow: auto;
   border: 1px solid #474747;
@@ -1021,72 +1036,52 @@ button:disabled {
   color: rgb(0 0 0 / 0.62);
 }
 
-.continuum-menu-flyout-trigger {
+.continuum-menu-section {
+  border-bottom: 1px solid #262626;
+}
+
+.continuum-shell[data-theme="light"] .continuum-menu-section {
+  border-bottom-color: rgba(29, 29, 27, 0.12);
+}
+
+.continuum-menu-section summary {
   display: grid;
   grid-template-columns: 28px 1fr 18px;
   align-items: center;
-  width: 100%;
   min-height: 31px;
-  border: 0;
-  border-bottom: 1px solid #262626;
-  background: transparent;
+  padding: 0 8px;
   color: #c9c9c9;
   cursor: pointer;
-  font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  padding: 0 8px;
-  text-align: left;
+  list-style: none;
 }
 
-.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger {
-  border-bottom-color: rgba(29, 29, 27, 0.12);
+.continuum-shell[data-theme="light"] .continuum-menu-section summary {
   color: rgb(0 0 0 / 0.76);
 }
 
-.continuum-menu-flyout-trigger:hover,
-.continuum-menu-flyout-trigger.is-open {
+.continuum-menu-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.continuum-menu-section summary:hover {
   background: #171717;
 }
 
-.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger:hover,
-.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger.is-open {
+.continuum-shell[data-theme="light"] .continuum-menu-section summary:hover {
   background: rgba(29, 29, 27, 0.045);
 }
 
-.continuum-menu-flyout {
-  position: fixed;
-  z-index: 45;
-  max-height: calc(100vh - 20px);
-  overflow: auto;
-  border: 1px solid #474747;
-  border-radius: 8px;
-  background: #050505;
-  box-shadow: 0 18px 55px rgb(0 0 0 / 0.62);
-  color: #ededed;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
-    sans-serif;
-  font-size: 13px;
-  line-height: 1.22;
+.continuum-menu-section[open] .continuum-menu-chevron {
+  transform: rotate(90deg);
 }
 
-.continuum-shell[data-theme="light"] .continuum-menu-flyout {
-  border-color: rgba(29, 29, 27, 0.18);
-  background: #fffdfa;
-  box-shadow: 0 18px 55px rgb(0 0 0 / 0.18);
-  color: rgb(0 0 0 / 0.89);
-}
-
-.continuum-menu-flyout-body {
+.continuum-menu-section-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px 10px 10px;
-}
-
-.continuum-menu-chevron-right {
-  transform: none;
 }
 
 .continuum-menu-list {

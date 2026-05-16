@@ -4,9 +4,26 @@ import type {
 } from "@continuum/editor"
 import { formatReferenceLabel } from "@continuum/editor"
 import type { StructuredNoteDraftReference } from "@continuum/core"
-import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
+import type {
+  CSSProperties,
+  FormEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react"
+import { useEffect, useRef, useState } from "react"
+
+const MENU_WIDTH = 430
+const VIEWPORT_MARGIN = 10
+
+function clampMenuPosition(x: number, y: number, width: number, height: number) {
+  const menuWidth = Math.min(width, window.innerWidth - VIEWPORT_MARGIN * 2)
+  const menuHeight = Math.min(height, window.innerHeight - VIEWPORT_MARGIN * 2)
+
+  return {
+    x: Math.max(VIEWPORT_MARGIN, Math.min(x, window.innerWidth - menuWidth - VIEWPORT_MARGIN)),
+    y: Math.max(VIEWPORT_MARGIN, Math.min(y, window.innerHeight - menuHeight - VIEWPORT_MARGIN)),
+  }
+}
 
 export type ContinuumEditorMenuReferenceInput = {
   author: string
@@ -82,39 +99,6 @@ type ContinuumEditorMenuProps = {
   y: number
 }
 
-const MENU_WIDTH = 248
-const FLYOUT_WIDTH = 340
-const VIEWPORT_MARGIN = 10
-
-function clampMenuPosition(x: number, y: number, width: number, height: number) {
-  return {
-    x: Math.max(
-      VIEWPORT_MARGIN,
-      Math.min(x, window.innerWidth - Math.min(width, window.innerWidth - VIEWPORT_MARGIN * 2) - VIEWPORT_MARGIN),
-    ),
-    y: Math.max(
-      VIEWPORT_MARGIN,
-      Math.min(y, window.innerHeight - Math.min(height, window.innerHeight - VIEWPORT_MARGIN * 2) - VIEWPORT_MARGIN),
-    ),
-  }
-}
-
-function computeFlyoutPosition(anchor: DOMRect, flyoutHeight: number) {
-  const flyoutWidth = Math.min(FLYOUT_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2)
-  let left = anchor.right + 6
-  if (left + flyoutWidth > window.innerWidth - VIEWPORT_MARGIN) {
-    left = Math.max(VIEWPORT_MARGIN, anchor.left - flyoutWidth - 6)
-  }
-
-  let top = anchor.top
-  const maxTop = window.innerHeight - VIEWPORT_MARGIN - flyoutHeight
-  if (top > maxTop) {
-    top = Math.max(VIEWPORT_MARGIN, maxTop)
-  }
-
-  return { left, top, width: flyoutWidth }
-}
-
 export function ContinuumEditorMenu({
   activeCitation,
   activeReferenceInsert,
@@ -185,8 +169,8 @@ export function ContinuumEditorMenu({
       work: "",
       workDate: "",
     })
+  const hasActiveReferenceTarget = Boolean(activeCitation || activeReferenceInsert)
   const [menuPosition, setMenuPosition] = useState({ x, y })
-  const [openSectionId, setOpenSectionId] = useState<string | null>(null)
   const dragStateRef = useRef<{
     pointerId: number
     startX: number
@@ -196,14 +180,11 @@ export function ContinuumEditorMenu({
   } | null>(null)
   const menuRef = useRef<HTMLElement | null>(null)
 
-  const hasActiveReferenceTarget = Boolean(activeCitation || activeReferenceInsert)
-
   useEffect(() => {
     if (isOpen) {
-      setMenuPosition(clampMenuPosition(x, y, MENU_WIDTH, 420))
-      setOpenSectionId(hasActiveReferenceTarget ? "referencias" : null)
+      setMenuPosition(clampMenuPosition(x, y, MENU_WIDTH, 720))
     }
-  }, [hasActiveReferenceTarget, isOpen, x, y])
+  }, [isOpen, x, y])
 
   useEffect(() => {
     if (!isOpen) {
@@ -219,7 +200,7 @@ export function ContinuumEditorMenu({
         drag.originX + (event.clientX - drag.startX),
         drag.originY + (event.clientY - drag.startY),
         MENU_WIDTH,
-        menuRef.current?.offsetHeight ?? 420,
+        menuRef.current?.offsetHeight ?? 720,
       )
       setMenuPosition(next)
     }
@@ -261,6 +242,11 @@ export function ContinuumEditorMenu({
     return null
   }
 
+  const style = {
+    left: menuPosition.x,
+    top: menuPosition.y,
+  } satisfies CSSProperties
+
   const submitReference = (
     event: FormEvent<HTMLFormElement>,
     mode: "library" | "active-target",
@@ -281,12 +267,6 @@ export function ContinuumEditorMenu({
     })
   }
 
-  const menuStyle = {
-    left: menuPosition.x,
-    top: menuPosition.y,
-    width: MENU_WIDTH,
-  } satisfies CSSProperties
-
   return (
     <div className="continuum-menu-backdrop" onMouseDown={onClose}>
       <aside
@@ -300,7 +280,7 @@ export function ContinuumEditorMenu({
           }
         }}
         onMouseDown={(event) => event.stopPropagation()}
-        style={menuStyle}
+        style={style}
       >
         <div
           className="continuum-menu-header continuum-menu-header-draggable"
@@ -312,25 +292,17 @@ export function ContinuumEditorMenu({
           </button>
         </div>
 
-        <MenuFlyoutSection
-          icon="T"
-          isOpen={openSectionId === "texto"}
-          onToggle={() =>
-            setOpenSectionId((current) => (current === "texto" ? null : "texto"))
-          }
-          sectionId="texto"
-          title="Texto"
-        >
+        <MenuSection defaultOpen icon="T" title="Texto">
           <div className="continuum-menu-list">
-            <MenuButton icon="§" onClick={onToggleAphorism}>
+            <MenuButton icon="A" onClick={onToggleAphorism}>
               Aforismo
             </MenuButton>
-            <MenuButton icon="§§" onClick={onMarkAllParagraphsAsAphorisms}>
+            <MenuButton icon="A*" onClick={onMarkAllParagraphsAsAphorisms}>
               Marcar todos como aforismos
             </MenuButton>
             <MenuButton
               disabled={!canModifyAphorism}
-              icon="§−"
+              icon="A-"
               onClick={onUnmarkAphorism}
               title={
                 canModifyAphorism
@@ -340,12 +312,12 @@ export function ContinuumEditorMenu({
             >
               Quitar aforismo
             </MenuButton>
-            <MenuButton icon="↥" onClick={onJoinPreviousAphorism}>
+            <MenuButton icon="A↑" onClick={onJoinPreviousAphorism}>
               Unir al anterior
             </MenuButton>
             <MenuButton
               disabled={!canModifyAphorism}
-              icon="↧"
+              icon="A↓"
               onClick={onSeparateAphorism}
               title={
                 canModifyAphorism
@@ -402,17 +374,11 @@ export function ContinuumEditorMenu({
               TeX ($...$)
             </MenuButton>
           </div>
-        </MenuFlyoutSection>
+        </MenuSection>
 
-        <MenuFlyoutSection
+        <MenuSection
+          defaultOpen={hasActiveReferenceTarget}
           icon="R"
-          isOpen={openSectionId === "referencias"}
-          onToggle={() =>
-            setOpenSectionId((current) =>
-              current === "referencias" ? null : "referencias",
-            )
-          }
-          sectionId="referencias"
           title="Referencias"
         >
           {activeCitation ? (
@@ -453,17 +419,9 @@ export function ContinuumEditorMenu({
             onChange={setReferenceInput}
             onSubmit={submitReference}
           />
-        </MenuFlyoutSection>
+        </MenuSection>
 
-        <MenuFlyoutSection
-          icon="N"
-          isOpen={openSectionId === "nota"}
-          onToggle={() =>
-            setOpenSectionId((current) => (current === "nota" ? null : "nota"))
-          }
-          sectionId="nota"
-          title="Nota"
-        >
+        <MenuSection icon="N" title="Nota">
           <label className="continuum-menu-field">
             <span>Fecha escrita</span>
             <input
@@ -503,17 +461,9 @@ export function ContinuumEditorMenu({
               </MenuButton>
             )}
           </div>
-        </MenuFlyoutSection>
+        </MenuSection>
 
-        <MenuFlyoutSection
-          icon="↻"
-          isOpen={openSectionId === "sync"}
-          onToggle={() =>
-            setOpenSectionId((current) => (current === "sync" ? null : "sync"))
-          }
-          sectionId="sync"
-          title="Sincronizacion"
-        >
+        <MenuSection icon="↻" title="Sincronizacion">
           <div className="continuum-menu-status">
             <span>{syncLabel}</span>
             <small>
@@ -543,17 +493,9 @@ export function ContinuumEditorMenu({
           >
             Reintentar
           </MenuButton>
-        </MenuFlyoutSection>
+        </MenuSection>
 
-        <MenuFlyoutSection
-          icon="C"
-          isOpen={openSectionId === "app"}
-          onToggle={() =>
-            setOpenSectionId((current) => (current === "app" ? null : "app"))
-          }
-          sectionId="app"
-          title="Aplicacion"
-        >
+        <MenuSection icon="C" title="Aplicacion">
           <MenuButton
             icon={appearanceMode === "dark" ? "☼" : "☾"}
             onClick={() => onSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")}
@@ -563,89 +505,44 @@ export function ContinuumEditorMenu({
           <MenuButton icon="←" onClick={onLogout}>
             Salir
           </MenuButton>
-        </MenuFlyoutSection>
+        </MenuSection>
       </aside>
     </div>
   )
 }
 
-function MenuFlyoutSection({
+function MenuSection({
   children,
+  defaultOpen = false,
   icon,
-  isOpen,
-  onToggle,
-  sectionId,
   title,
 }: {
   children: ReactNode
+  defaultOpen?: boolean
   icon: string
-  isOpen: boolean
-  onToggle: () => void
-  sectionId: string
   title: string
 }) {
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const flyoutRef = useRef<HTMLDivElement | null>(null)
-  const [flyoutStyle, setFlyoutStyle] = useState<CSSProperties>({ visibility: "hidden" })
-
-  const repositionFlyout = useCallback(() => {
-    if (!isOpen || !triggerRef.current || !flyoutRef.current) {
-      return
-    }
-    const anchor = triggerRef.current.getBoundingClientRect()
-    const flyoutHeight = flyoutRef.current.offsetHeight
-    const position = computeFlyoutPosition(anchor, flyoutHeight)
-    setFlyoutStyle({
-      left: position.left,
-      top: position.top,
-      width: position.width,
-      visibility: "visible",
-    })
-  }, [isOpen])
-
-  useLayoutEffect(() => {
-    if (!isOpen) {
-      return
-    }
-    repositionFlyout()
-    window.addEventListener("resize", repositionFlyout)
-    return () => window.removeEventListener("resize", repositionFlyout)
-  }, [isOpen, repositionFlyout, children])
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
-  <>
-    <button
-      ref={triggerRef}
-      type="button"
-      className={`continuum-menu-flyout-trigger${isOpen ? " is-open" : ""}`}
-      aria-expanded={isOpen}
-      aria-controls={`continuum-menu-flyout-${sectionId}`}
-      onClick={onToggle}
-      onMouseDown={(event) => event.preventDefault()}
-    >
-      <span className="continuum-menu-icon" aria-hidden="true">
-        {icon}
-      </span>
-      <span>{title}</span>
-      <span className="continuum-menu-chevron continuum-menu-chevron-right" aria-hidden="true">
-        ›
-      </span>
-    </button>
-    {isOpen
-      ? createPortal(
-          <div
-            ref={flyoutRef}
-            id={`continuum-menu-flyout-${sectionId}`}
-            className="continuum-menu-flyout"
-            style={flyoutStyle}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="continuum-menu-flyout-body">{children}</div>
-          </div>,
-          document.body,
-        )
-      : null}
-  </>
+    <details className="continuum-menu-section" open={open}>
+      <summary
+        onClick={(event) => {
+          event.preventDefault()
+          setOpen((current) => !current)
+        }}
+        onMouseDown={(event) => event.preventDefault()}
+      >
+        <span className="continuum-menu-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{title}</span>
+        <span className="continuum-menu-chevron" aria-hidden="true">
+          ›
+        </span>
+      </summary>
+      <div className="continuum-menu-section-body">{children}</div>
+    </details>
   )
 }
 

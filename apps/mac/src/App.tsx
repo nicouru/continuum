@@ -322,9 +322,8 @@ function getConflictPreview(draft: StructuredNoteDraft, version: number) {
 function NewNoteIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-      <rect height="11.5" rx="1.6" width="11.5" x="4.75" y="4.75" />
-      <path d="M9.2 15.1l1-3.2 5.7-5.7 2.2 2.2-5.7 5.7z" />
-      <path d="M14.1 5.4l2.2 2.2" />
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.375 2.625a2.121 2.121 0 0 1 3 3L12.5 14.586l-2.914.914.914-2.914z" />
     </svg>
   )
 }
@@ -375,6 +374,27 @@ function NoteSyncDot({ syncState }: { syncState: NoteMeta["syncState"] }) {
 }
 
 function SidebarHeader({
+  folder,
+  onShowAll,
+}: {
+  folder: "all" | "trash"
+  onShowAll: () => void
+}) {
+  return (
+    <header className="continuum-sidebar-header">
+      <BrandMark />
+      <button
+        type="button"
+        className={`continuum-folder-chip${folder === "all" ? " active" : ""}`}
+        onClick={onShowAll}
+      >
+        Todas
+      </button>
+    </header>
+  )
+}
+
+function SidebarCreateNote({
   creatingNote,
   onCreateNote,
 }: {
@@ -382,33 +402,49 @@ function SidebarHeader({
   onCreateNote: () => void
 }) {
   return (
-    <header className="continuum-sidebar-header">
-      <BrandMark />
+    <div className="continuum-sidebar-create">
       <button
         type="button"
-        className="continuum-icon-button continuum-new-note-button"
+        className="continuum-new-note-button"
         disabled={creatingNote}
         onClick={onCreateNote}
         aria-label="Nueva nota"
         title="Nueva nota"
       >
         <NewNoteIcon />
+        <span>{creatingNote ? "Creando…" : "Nueva nota"}</span>
       </button>
-    </header>
+    </div>
   )
 }
 
 function SidebarFooter({
   appearanceMode,
+  folder,
   onSetAppearanceMode,
+  onShowTrash,
   onToggleSidebar,
 }: {
   appearanceMode: "dark" | "light"
+  folder: "all" | "trash"
   onSetAppearanceMode: (value: "dark" | "light") => void
+  onShowTrash: () => void
   onToggleSidebar: () => void
 }) {
   return (
     <footer className="continuum-sidebar-footer">
+      <button
+        type="button"
+        className={`continuum-icon-button continuum-trash-folder-button${
+          folder === "trash" ? " active" : ""
+        }`}
+        onClick={onShowTrash}
+        aria-label="Papelera"
+        title="Papelera"
+      >
+        <TrashIcon />
+      </button>
+      <span className="continuum-sidebar-footer-spacer" aria-hidden="true" />
       <button
         type="button"
         className="continuum-icon-button"
@@ -1665,29 +1701,14 @@ export default function App() {
         {sidebarVisible ? (
           <>
           <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-            <SidebarHeader creatingNote={creatingNote} onCreateNote={handleCreateNote} />
-            <nav className="continuum-folders">
-              <button
-                type="button"
-                className={folder === "all" ? "active" : ""}
-                onClick={() => setFolder("all")}
-              >
-                Todas
-              </button>
-              <button
-                type="button"
-                className={folder === "trash" ? "active" : ""}
-                onClick={() => setFolder("trash")}
-                aria-label="Papelera"
-                title="Papelera"
-              >
-                <TrashIcon />
-              </button>
-            </nav>
+            <SidebarHeader folder={folder} onShowAll={() => setFolder("all")} />
+            <SidebarCreateNote creatingNote={creatingNote} onCreateNote={handleCreateNote} />
             <div className="continuum-list" />
             <SidebarFooter
               appearanceMode={appearanceMode}
+              folder={folder}
               onSetAppearanceMode={handleSetAppearanceMode}
+              onShowTrash={() => setFolder("trash")}
               onToggleSidebar={handleToggleSidebar}
             />
           </aside>
@@ -1747,25 +1768,8 @@ export default function App() {
       {sidebarVisible ? (
         <>
         <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-          <SidebarHeader creatingNote={creatingNote} onCreateNote={handleCreateNote} />
-          <nav className="continuum-folders">
-            <button
-              type="button"
-              className={folder === "all" ? "active" : ""}
-              onClick={() => setFolder("all")}
-            >
-              Todas
-            </button>
-            <button
-              type="button"
-              className={folder === "trash" ? "active" : ""}
-              onClick={() => setFolder("trash")}
-              aria-label="Papelera"
-              title="Papelera"
-            >
-              <TrashIcon />
-            </button>
-          </nav>
+          <SidebarHeader folder={folder} onShowAll={() => setFolder("all")} />
+          <SidebarCreateNote creatingNote={creatingNote} onCreateNote={handleCreateNote} />
           {folder === "all" && selectedVisibleNoteIds.length > 1 ? (
             <div className="continuum-bulk-actions">
               <span>{selectedVisibleNoteIds.length} seleccionadas</span>
@@ -1806,7 +1810,7 @@ export default function App() {
                   {titleText ? (
                     <div className="continuum-list-title">{titleText}</div>
                   ) : null}
-                  <div className="continuum-list-preview">{previewText}</div>
+                  <div className="continuum-list-preview continuum-list-preview--justified">{previewText}</div>
                   <NoteSyncDot syncState={note.syncState} />
                 </button>
               )
@@ -1814,7 +1818,9 @@ export default function App() {
           </div>
           <SidebarFooter
             appearanceMode={appearanceMode}
+            folder={folder}
             onSetAppearanceMode={handleSetAppearanceMode}
+            onShowTrash={() => setFolder("trash")}
             onToggleSidebar={handleToggleSidebar}
           />
         </aside>
