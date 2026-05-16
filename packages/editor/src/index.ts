@@ -24,6 +24,11 @@ export {
   getCurrentEditableTextBlock,
   getPreviousAphorismId,
   getNextCitationNumber,
+  getFirstInlineMathInSelection,
+  getActiveCitationDetails,
+  getActiveReferenceInsertDetails,
+  getActiveInlineMathDetails,
+  getActiveBlockDetails,
 } from "./editor-queries"
 export {
   createTipTapPrototypeDocumentFromStructuredDraft,

@@ -1,8 +1,11 @@
 .continuum-shell {
   display: flex;
   min-height: 100vh;
-  background: #141720;
-  color: #e8eaef;
+  background: #050505;
+  color: #e8e8e8;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 }
 
 .continuum-loading,
@@ -80,8 +83,8 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #2a3142;
-  background: #10141c;
+  border-right: 1px solid #323232;
+  background: #0a0a0a;
 }
 
 .continuum-brand {
@@ -90,15 +93,15 @@
   justify-content: space-between;
   padding: 12px 14px;
   font-size: 13px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   text-transform: uppercase;
-  border-bottom: 1px solid #2a3142;
+  border-bottom: 1px solid #2f2f2f;
 }
 
 .continuum-brand button {
   border: 0;
   background: transparent;
-  color: #9aa3b5;
+  color: #a6a6a6;
   cursor: pointer;
   padding: 4px 6px;
 }
@@ -112,17 +115,17 @@
 
 .continuum-folders button {
   border-radius: 6px;
-  border: 1px solid #2f3a52;
-  background: #161b26;
-  color: #cdd4e3;
+  border: 1px solid #353535;
+  background: #111111;
+  color: #d8d8d8;
   padding: 8px;
   cursor: pointer;
   font-size: 12px;
 }
 
 .continuum-folders button.active {
-  border-color: #4a5c86;
-  background: #1c2333;
+  border-color: #565656;
+  background: #1d1d1d;
 }
 
 .continuum-list {
@@ -145,17 +148,17 @@
 }
 
 .continuum-list button:hover {
-  background: #1a2130;
+  background: #1a1a1a;
 }
 
 .continuum-list button.active {
-  border-color: #3f4f75;
-  background: #1c2434;
+  border-color: #555555;
+  background: #202020;
 }
 
 .continuum-list-date {
   font-size: 11px;
-  color: #8b94a8;
+  color: #9b9b9b;
 }
 
 .continuum-list-title {
@@ -173,8 +176,8 @@
   margin-top: 6px;
   padding: 2px 6px;
   border-radius: 999px;
-  border: 1px solid #30394d;
-  color: #9aa3b5;
+  border: 1px solid #363636;
+  color: #a6a6a6;
   font-size: 10px;
 }
 
@@ -199,9 +202,9 @@
   margin: 8px;
   padding: 10px;
   border-radius: 8px;
-  border: 1px solid #364566;
-  background: #1d2638;
-  color: #eef2fb;
+  border: 1px solid #3c3c3c;
+  background: #151515;
+  color: #eeeeee;
   cursor: pointer;
 }
 
@@ -214,9 +217,9 @@ button:disabled {
   width: 28px;
   flex: none;
   border: 0;
-  border-right: 1px solid #2a3142;
-  background: #10141c;
-  color: #cdd4e3;
+  border-right: 1px solid #323232;
+  background: #0a0a0a;
+  color: #d8d8d8;
   cursor: pointer;
 }
 
@@ -427,8 +430,8 @@ button:disabled {
 .continuum-editor-surface blockquote {
   margin: 0 0 1rem;
   padding-left: 12px;
-  border-left: 2px solid #3f4f75;
-  color: #cdd4e3;
+  border-left: 2px solid #5a5a5a;
+  color: #d8d8d8;
 }
 
 .continuum-editor-surface .tiptap-inline-math {
@@ -443,4 +446,238 @@ button:disabled {
 .continuum-editor-surface span[data-manual-indent-id] {
   display: inline-block;
   width: 1.5em;
+}
+
+.continuum-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.continuum-editor-menu {
+  position: fixed;
+  width: min(430px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
+  overflow: auto;
+  border: 1px solid #474747;
+  border-radius: 8px;
+  background: #050505;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.62);
+  color: #ededed;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.continuum-menu-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid #333333;
+  background: #050505;
+  color: #cfcfcf;
+  font-weight: 600;
+}
+
+.continuum-menu-header button {
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  background: #121212;
+  color: #a8a8a8;
+  font-size: 11px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.continuum-menu-section {
+  border-bottom: 1px solid #262626;
+}
+
+.continuum-menu-section summary {
+  display: grid;
+  grid-template-columns: 28px 1fr 18px;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 8px;
+  color: #c9c9c9;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.continuum-menu-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.continuum-menu-section summary:hover {
+  background: #171717;
+}
+
+.continuum-menu-section[open] .continuum-menu-chevron {
+  transform: rotate(90deg);
+}
+
+.continuum-menu-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+
+.continuum-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.continuum-menu-button {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  min-height: 28px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #e8e8e8;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: left;
+  padding: 5px 8px;
+}
+
+.continuum-menu-button:hover:not(:disabled) {
+  background: #1e1e1e;
+  border-color: #333333;
+}
+
+.continuum-menu-button-primary {
+  border-color: #3a3a3a;
+  background: #121212;
+}
+
+.continuum-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: #d7d7d7;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.continuum-menu-chevron {
+  justify-self: end;
+  color: #bdbdbd;
+  font-size: 20px;
+  line-height: 1;
+  transform-origin: center;
+}
+
+.continuum-menu-note {
+  margin: 0;
+  color: #9d9d9d;
+  font-size: 12px;
+}
+
+.continuum-menu-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #a8a8a8;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.continuum-menu-field input,
+.continuum-menu-field select,
+.continuum-menu-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #393939;
+  border-radius: 6px;
+  background: #090909;
+  color: #eeeeee;
+  font: inherit;
+  padding: 6px 7px;
+}
+
+.continuum-menu-field textarea {
+  resize: vertical;
+  min-height: 62px;
+}
+
+.continuum-reference-resolver,
+.continuum-reference-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.continuum-reference-resolver {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #252525;
+}
+
+.continuum-reference-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.continuum-reference-summary span,
+.continuum-menu-subtitle {
+  color: #9d9d9d;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.continuum-reference-summary strong {
+  color: #f0f0f0;
+  font-size: 12px;
+}
+
+.continuum-reference-summary p {
+  max-height: 46px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: #b8b8b8;
+  font-size: 11px;
+}
+
+.continuum-menu-status {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #0b0b0b;
+}
+
+.continuum-menu-status span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #eeeeee;
+  font-weight: 600;
+}
+
+.continuum-menu-status small {
+  color: #a2a2a2;
+  white-space: nowrap;
+}
+
+.continuum-menu-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #d4d4d4;
+  font-size: 12px;
 }

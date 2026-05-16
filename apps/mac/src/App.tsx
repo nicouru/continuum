@@ -8,13 +8,22 @@ import {
   ContinuumEditor,
   addCitationToSelection,
   associateReferenceWithActiveCitation,
+  associateReferenceWithActiveReferenceInsert,
+  clearReferenceFromActiveCitation,
+  clearReferenceFromActiveReferenceInsert,
   continuumBootstrapPrototype,
+  createStructuredDraftFromTipTapPrototypeDocument,
   convertMarkdownInlineMath,
   convertSelectionToReferenceInsert,
+  filterReferences,
+  getActiveCitationDetails,
+  getActiveReferenceInsertDetails,
+  getFirstInlineMathInSelection,
   makeId,
   markCurrentBlockAsAphorism,
   removeCitationFromSelection,
   type ContinuumEditorPayload,
+  type TipTapJsonNode,
 } from "@continuum/editor"
 import type {
   NoteFull,
@@ -43,6 +52,10 @@ import {
 import type { AsyncSqlNoteRepository } from "./note-repository/async-sql-note-repository"
 import { readPreferences, writePreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
+import {
+  ContinuumEditorMenu,
+  type ContinuumEditorMenuReferenceInput,
+} from "./ContinuumEditorMenu"
 import "./App.css"
 
 function bootstrapErrorMessage(error: unknown): string {
@@ -118,6 +131,17 @@ function formatRetryTime(value: string | null) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
+function clampContextMenuPosition(x: number, y: number) {
+  const margin = 10
+  const menuWidth = 430
+  const menuHeight = Math.min(720, window.innerHeight - margin * 2)
+
+  return {
+    x: Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin)),
+    y: Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin)),
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -160,8 +184,18 @@ export default function App() {
   const [conflicts, setConflicts] = useState<SyncConflictRecord[]>([])
   const [syncBusy, setSyncBusy] = useState(false)
   const [offline, setOffline] = useState(false)
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const [editorRevision, setEditorRevision] = useState(0)
+  const [referenceSearch, setReferenceSearch] = useState("")
+  const [creatingReference, setCreatingReference] = useState(false)
+  const [editorMenu, setEditorMenu] = useState({
+    isOpen: false,
+    x: 0,
+    y: 0,
+  })
 
   const editorRef = useRef<Editor | null>(null)
+  const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
   const offlineRef = useRef(false)
   offlineRef.current = offline
@@ -172,6 +206,29 @@ export default function App() {
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
+  const activeDraft = livePayload?.structuredDraft ?? fullNote?.structuredDraft ?? null
+  const hasSelection = editor ? !editor.state.selection.empty : false
+  const selectionIncludesInlineMath = useMemo(
+    () => (editor ? Boolean(getFirstInlineMathInSelection(editor)) : false),
+    [editor, editorRevision],
+  )
+  const activeCitation = useMemo(
+    () => (activeDraft ? getActiveCitationDetails(editor, activeDraft) : null),
+    [activeDraft, editor, editorRevision],
+  )
+  const activeReferenceInsert = useMemo(
+    () => (activeDraft ? getActiveReferenceInsertDetails(editor, activeDraft) : null),
+    [activeDraft, editor, editorRevision],
+  )
+  const filteredReferences = useMemo(
+    () => filterReferences(activeDraft?.references ?? [], referenceSearch),
+    [activeDraft, referenceSearch],
+  )
+  const selectedReferenceId = activeCitation?.referenceId ?? ""
+  const selectedReferenceInsertId = activeReferenceInsert?.referenceId ?? ""
+  const canCreateCitation = Boolean(editor && hasSelection && !selectionIncludesInlineMath)
+  const canCreateReferenceInsert = Boolean(editor && hasSelection)
+  const canCreateInlineMath = Boolean(editor && hasSelection)
 
   const refreshList = useCallback(async () => {
     if (!repo) {
@@ -194,6 +251,63 @@ export default function App() {
     setSyncStatus(status)
     setConflicts(openConflicts)
   }, [repo])
+
+  useEffect(() => {
+    if (!editor) {
+      return
+    }
+    const bumpRevision = () => setEditorRevision((value) => value + 1)
+    editor.on("selectionUpdate", bumpRevision)
+    editor.on("update", bumpRevision)
+    bumpRevision()
+
+    return () => {
+      editor.off("selectionUpdate", bumpRevision)
+      editor.off("update", bumpRevision)
+    }
+  }, [editor])
+
+  const openEditorMenuAt = useCallback((x: number, y: number) => {
+    const position = clampContextMenuPosition(x, y)
+    setEditorMenu({ isOpen: true, ...position })
+  }, [])
+
+  const closeEditorMenu = useCallback(() => {
+    setEditorMenu((current) => ({ ...current, isOpen: false }))
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && editorMenu.isOpen) {
+        closeEditorMenu()
+        return
+      }
+
+      if (!event.metaKey || (event.key !== "9" && event.code !== "Digit9")) {
+        return
+      }
+      event.preventDefault()
+
+      if (editor) {
+        try {
+          const coords = editor.view.coordsAtPos(editor.state.selection.from)
+          openEditorMenuAt(coords.left, coords.bottom + 8)
+          return
+        } catch {
+          // Fall through to the main-pane position.
+        }
+      }
+
+      const rect = mainRef.current?.getBoundingClientRect()
+      openEditorMenuAt(
+        rect ? rect.left + Math.min(360, rect.width / 2) : window.innerWidth / 2,
+        rect ? rect.top + 96 : window.innerHeight / 3,
+      )
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [closeEditorMenu, editor, editorMenu.isOpen, openEditorMenuAt])
 
   useEffect(() => {
     if (!selectedId) {
@@ -699,32 +813,79 @@ export default function App() {
     await refreshSyncStatus()
   }
 
-  const handleAddReference = async () => {
-    if (!repo || !fullNote || !deviceId) {
+  const handleAddReference = async (
+    input: ContinuumEditorMenuReferenceInput = {
+      author: "",
+      body: "Nueva referencia",
+      work: "",
+    },
+    mode: "library" | "active-target" = "library",
+  ) => {
+    const sourceDraft = livePayload?.structuredDraft ?? fullNote?.structuredDraft
+
+    if (!repo || !fullNote || !sourceDraft || !deviceId) {
       return
     }
+    setCreatingReference(true)
     const refId = makeId("reference")
+    const body = input.body.trim() || "Nueva referencia"
     const nextDraft = normalizeStructuredNoteDraft({
-      ...fullNote.structuredDraft,
+      ...sourceDraft,
       references: [
-        ...fullNote.structuredDraft.references,
+        ...sourceDraft.references,
         {
-          body: "Nueva referencia",
+          ...(input.author.trim() ? { author: input.author.trim() } : {}),
+          body,
+          ...(input.work.trim() ? { work: input.work.trim() } : {}),
           id: refId,
         },
       ],
     })
-    await repo.saveNote({
-      bumpLocalVersion: true,
-      deviceId,
-      structuredDraft: nextDraft,
-      syncState: offline ? "offline" : "dirty",
-      tiptapJson: fullNote.tiptapJson,
-    })
-    const refreshed = await repo.getNoteById(fullNote.id)
-    setFullNote(refreshed)
-    await refreshList()
-    await refreshSyncStatus()
+    try {
+      let saved = await repo.saveNote({
+        bumpLocalVersion: true,
+        deviceId,
+        structuredDraft: nextDraft,
+        syncState: offline ? "offline" : "dirty",
+        tiptapJson: livePayload?.tiptapJson ?? fullNote.tiptapJson,
+      })
+
+      if (mode === "active-target") {
+        if (activeCitation) {
+          associateReferenceWithActiveCitation(editorRef.current, refId)
+        } else if (activeReferenceInsert) {
+          associateReferenceWithActiveReferenceInsert(editorRef.current, refId, nextDraft)
+        }
+        flushAutosaveTimer()
+
+        const tiptapJson: TipTapJsonNode = (
+          editorRef.current?.getJSON() ??
+          livePayload?.tiptapJson ??
+          fullNote.tiptapJson
+        ) as TipTapJsonNode
+        const associatedDraft = normalizeStructuredNoteDraft(
+          createStructuredDraftFromTipTapPrototypeDocument({
+            sourceDraft: nextDraft,
+            tiptap: tiptapJson,
+          }),
+        )
+        saved = await repo.saveNote({
+          bumpLocalVersion: true,
+          deviceId,
+          structuredDraft: associatedDraft,
+          syncState: offline ? "offline" : "dirty",
+          tiptapJson,
+        })
+        setLivePayload({ structuredDraft: associatedDraft, tiptapJson })
+      }
+
+      setFullNote(saved)
+      setReferenceSearch("")
+      await refreshList()
+      await refreshSyncStatus()
+    } finally {
+      setCreatingReference(false)
+    }
   }
 
   if (bootstrapError) {
@@ -924,112 +1085,77 @@ export default function App() {
         </button>
       )}
 
-      <main className="continuum-main">
-        <header className="continuum-toolbar">
-          <div className="continuum-toolbar-tools">
-            <button
-              type="button"
-              onClick={() => markCurrentBlockAsAphorism(editorRef.current)}
-            >
-              Aforismo
-            </button>
-            <button type="button" onClick={() => addCitationToSelection(editorRef.current)}>
-              Cita
-            </button>
-            <button
-              type="button"
-              onClick={() => removeCitationFromSelection(editorRef.current)}
-            >
-              Quitar cita
-            </button>
-            <label className="continuum-toolbar-select">
-              Asociar cita
-              <select
-                defaultValue=""
-                onChange={(event) => {
-                  const referenceId = event.target.value
-                  if (!referenceId) {
-                    return
-                  }
-                  associateReferenceWithActiveCitation(editorRef.current, referenceId)
-                  event.target.selectedIndex = 0
-                }}
-              >
-                <option value="">Referencia…</option>
-                {(livePayload ?? fullNote).structuredDraft.references.map((reference) => (
-                  <option key={reference.id} value={reference.id}>
-                    {reference.author || reference.work || reference.body || reference.id}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() => convertSelectionToReferenceInsert(editorRef.current)}
-            >
-              Insertar cita larga
-            </button>
-            <button
-              type="button"
-              onClick={() => convertMarkdownInlineMath(editorRef.current)}
-            >
-              TeX ($…$)
-            </button>
-            <button type="button" onClick={handleAddReference}>
-              + Referencia
-            </button>
-            {folder === "all" ? (
-              <button type="button" onClick={handleTrash}>
-                Mover a papelera
-              </button>
-            ) : (
-              <button type="button" onClick={handleRestore}>
-                Restaurar
-              </button>
-            )}
-          </div>
-          <div className="continuum-toolbar-status">
-            <label className="continuum-offline">
-              <input
-                type="checkbox"
-                checked={offline}
-                onChange={(event) => setOffline(event.target.checked)}
-              />
-              Modo offline
-            </label>
-            <button type="button" onClick={handleManualSave}>
-              Guardar borrador
-            </button>
-            <button
-              type="button"
-              disabled={syncBusy || !syncStatus?.pendingCount}
-              onClick={handleRetrySyncNow}
-            >
-              Reintentar
-            </button>
-            <span className="continuum-sync-pill" title={syncLabel}>
-              {syncLabel}
-            </span>
-            <span
-              className="continuum-sync-detail"
-              title={syncStatus?.lastError ?? undefined}
-            >
-              {syncStatus?.conflictCount
-                ? `${syncStatus.conflictCount} conflicto`
-                : syncStatus?.pendingCount
-                  ? `${syncStatus.pendingCount} pendiente`
-                  : "0 pendiente"}
-              {retryTime ? ` · ${retryTime}` : ""}
-            </span>
-            <span className="continuum-sync-source" title={`Sync: ${remote.label}`}>
-              {remote.mode === "http" ? "Diario" : "Mock"}
-            </span>
-            <button type="button" className="continuum-logout" onClick={handleLogout}>
-              Salir
-            </button>
-          </div>
-        </header>
-
+      <main className="continuum-main" ref={mainRef}>
+        <ContinuumEditorMenu
+          activeCitation={activeCitation}
+          activeReferenceInsert={activeReferenceInsert}
+          canCreateCitation={canCreateCitation}
+          canCreateInlineMath={canCreateInlineMath}
+          canCreateReferenceInsert={canCreateReferenceInsert}
+          canRetrySync={Boolean(syncStatus?.pendingCount)}
+          creatingReference={creatingReference}
+          filteredReferences={filteredReferences}
+          folder={folder}
+          isOpen={editorMenu.isOpen}
+          offline={offline}
+          onAddCitation={() => addCitationToSelection(editorRef.current)}
+          onAddReference={handleAddReference}
+          onAssociateCitationReference={(referenceId) => {
+            if (referenceId) {
+              associateReferenceWithActiveCitation(editorRef.current, referenceId)
+            } else {
+              clearReferenceFromActiveCitation(editorRef.current)
+            }
+          }}
+          onAssociateReferenceInsertReference={(referenceId) => {
+            if (!activeDraft) {
+              return
+            }
+            if (referenceId) {
+              associateReferenceWithActiveReferenceInsert(
+                editorRef.current,
+                referenceId,
+                activeDraft,
+              )
+            } else {
+              clearReferenceFromActiveReferenceInsert(editorRef.current, activeDraft)
+            }
+          }}
+          onClearCitationReference={() => clearReferenceFromActiveCitation(editorRef.current)}
+          onClearReferenceInsertReference={() => {
+            if (activeDraft) {
+              clearReferenceFromActiveReferenceInsert(editorRef.current, activeDraft)
+            }
+          }}
+          onClose={closeEditorMenu}
+          onConvertInlineMath={() => convertMarkdownInlineMath(editorRef.current)}
+          onCreateReferenceInsert={() => convertSelectionToReferenceInsert(editorRef.current)}
+          onLogout={handleLogout}
+          onManualSave={handleManualSave}
+          onReferenceSearchChange={setReferenceSearch}
+          onRemoveCitation={() => removeCitationFromSelection(editorRef.current)}
+          onRestore={handleRestore}
+          onRetrySync={handleRetrySyncNow}
+          onSetOffline={setOffline}
+          onTrash={handleTrash}
+          onToggleAphorism={() => markCurrentBlockAsAphorism(editorRef.current)}
+          onTitleChange={setTitle}
+          onWrittenAtChange={setWrittenAt}
+          referenceSearch={referenceSearch}
+          remoteLabel={remote.label}
+          remoteMode={remote.mode}
+          retryTime={retryTime}
+          selectedReferenceId={selectedReferenceId}
+          selectedReferenceInsertId={selectedReferenceInsertId}
+          syncBusy={syncBusy}
+          syncConflictCount={syncStatus?.conflictCount ?? 0}
+          syncLabel={syncLabel}
+          syncPendingCount={syncStatus?.pendingCount ?? 0}
+          title={title}
+          writtenAt={writtenAt}
+          x={editorMenu.x}
+          y={editorMenu.y}
+        />
         {selectedConflict ? (
           <section className="continuum-conflict-panel">
             <div>
@@ -1065,9 +1191,11 @@ export default function App() {
           onPayload={handleEditorPayload}
           onReady={(editor) => {
             editorRef.current = editor
+            setEditor(editor)
           }}
           onTitleChange={setTitle}
           onWrittenAtChange={setWrittenAt}
+          showMetadataControls={false}
           title={title}
           writtenAt={writtenAt}
         />

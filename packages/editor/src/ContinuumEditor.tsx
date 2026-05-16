@@ -30,6 +30,7 @@ export type ContinuumEditorProps = {
   onWrittenAtChange: (value: string) => void
   onPayload: (payload: ContinuumEditorPayload) => void
   onReady?: (editor: Editor | null) => void
+  showMetadataControls?: boolean
 }
 
 export function ContinuumEditor({
@@ -42,6 +43,7 @@ export function ContinuumEditor({
   onWrittenAtChange,
   onPayload,
   onReady,
+  showMetadataControls = true,
 }: ContinuumEditorProps) {
   const sourceDraftRef = useRef(initialDraft)
   useEffect(() => {
@@ -153,25 +155,27 @@ export function ContinuumEditor({
 
   return (
     <div className="continuum-editor-root">
-      <div className="continuum-meta-row">
-        <label className="continuum-meta-field">
-          <span>Fecha escrita</span>
-          <input
-            type="date"
-            value={(writtenAt || "").slice(0, 10)}
-            onChange={(event) => onWrittenAtChange(event.target.value)}
-          />
-        </label>
-        <label className="continuum-meta-field continuum-title-field">
-          <span>Título (opcional)</span>
-          <input
-            type="text"
-            value={title}
-            placeholder="Sin título"
-            onChange={(event) => onTitleChange(event.target.value)}
-          />
-        </label>
-      </div>
+      {showMetadataControls ? (
+        <div className="continuum-meta-row">
+          <label className="continuum-meta-field">
+            <span>Fecha escrita</span>
+            <input
+              type="date"
+              value={(writtenAt || "").slice(0, 10)}
+              onChange={(event) => onWrittenAtChange(event.target.value)}
+            />
+          </label>
+          <label className="continuum-meta-field continuum-title-field">
+            <span>Título (opcional)</span>
+            <input
+              type="text"
+              value={title}
+              placeholder="Sin título"
+              onChange={(event) => onTitleChange(event.target.value)}
+            />
+          </label>
+        </div>
+      ) : null}
       <EditorContent editor={editor} className="continuum-editor-surface" />
     </div>
   )
