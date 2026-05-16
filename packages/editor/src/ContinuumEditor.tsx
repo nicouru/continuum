@@ -36,6 +36,8 @@ export type ContinuumEditorProps = {
   onPayload: (payload: ContinuumEditorPayload) => void
   onEditorContextMenu?: MouseEventHandler<HTMLDivElement>
   onEditorFocus?: FocusEventHandler<HTMLDivElement>
+  focusOnLoad?: boolean
+  onFocusOnLoadConsumed?: () => void
   onReady?: (editor: Editor | null) => void
   showMetadataControls?: boolean
 }
@@ -51,6 +53,8 @@ export function ContinuumEditor({
   onPayload,
   onEditorContextMenu,
   onEditorFocus,
+  focusOnLoad = false,
+  onFocusOnLoadConsumed,
   onReady,
   showMetadataControls = true,
 }: ContinuumEditorProps) {
@@ -151,16 +155,19 @@ export function ContinuumEditor({
     }
     loadedNoteIdRef.current = noteId
     editor.commands.setContent(initialPrototype.tiptap, { emitUpdate: false })
-    if (isSingleEmptyTextBlockDocument(initialPrototype.tiptap)) {
+    if (focusOnLoad && isSingleEmptyTextBlockDocument(initialPrototype.tiptap)) {
       queueMicrotask(() => {
         if (!editor.isDestroyed) {
           editor.commands.focus(1)
+          onFocusOnLoadConsumed?.()
         }
       })
+    } else {
+      editor.commands.blur()
     }
     queueMicrotask(() => normalizeEditorIdentity(editor))
     queueMicrotask(() => emitCurrentPayload(editor))
-  }, [noteId, editor, initialPrototype])
+  }, [noteId, editor, initialPrototype, focusOnLoad, onFocusOnLoadConsumed])
 
   useEffect(() => {
     if (!editor) {

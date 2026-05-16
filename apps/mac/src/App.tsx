@@ -382,6 +382,7 @@ export default function App() {
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
   const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
   const [newlyCreatedNoteId, setNewlyCreatedNoteId] = useState<string | null>(null)
+  const [noteIdToFocusOnLoad, setNoteIdToFocusOnLoad] = useState<string | null>(null)
   const [folder, setFolder] = useState<"all" | "trash">("all")
   const [notes, setNotes] = useState<NoteMeta[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1059,6 +1060,7 @@ export default function App() {
   ) => {
     closeNoteMenu()
     setSidebarSelectionFocus(true)
+    setNoteIdToFocusOnLoad(null)
     setSelectedId(noteId)
 
     if (event.shiftKey) {
@@ -1097,6 +1099,7 @@ export default function App() {
     event.stopPropagation()
     closeEditorMenu()
     setSidebarSelectionFocus(true)
+    setNoteIdToFocusOnLoad(null)
 
     const noteIsInSelection = selectedVisibleNoteIds.includes(noteId)
     const targetIds =
@@ -1138,6 +1141,7 @@ export default function App() {
       setNotes(nextNotes)
       setSidebarSelectionFocus(false)
       setNewlyCreatedNoteId(saved.id)
+      setNoteIdToFocusOnLoad(saved.id)
       setSelectedId(saved.id)
       setSelectedNoteIds([saved.id])
       setSelectionAnchorId(saved.id)
@@ -1989,6 +1993,8 @@ export default function App() {
           onPayload={handleEditorPayload}
           onEditorContextMenu={handleEditorContextMenu}
           onEditorFocus={() => setSidebarSelectionFocus(false)}
+          focusOnLoad={noteIdToFocusOnLoad === fullNote.id}
+          onFocusOnLoadConsumed={() => setNoteIdToFocusOnLoad(null)}
           onReady={(editor) => {
             editorRef.current = editor
             setEditor(editor)
