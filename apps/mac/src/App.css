@@ -254,13 +254,18 @@ button:disabled {
 
 .continuum-conflict-panel {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding: 10px 16px;
   border-bottom: 1px solid #49353e;
   background: #251a22;
   color: #f1d2d8;
+}
+
+.continuum-conflict-body {
+  min-width: 0;
+  flex: 1;
 }
 
 .continuum-conflict-panel strong {
@@ -274,10 +279,53 @@ button:disabled {
   line-height: 1.35;
 }
 
+.continuum-conflict-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.continuum-conflict-preview-grid article {
+  min-width: 0;
+  border: 1px solid #553944;
+  border-radius: 6px;
+  background: #1b141a;
+  padding: 7px 8px;
+}
+
+.continuum-conflict-preview-grid span,
+.continuum-conflict-preview-grid small {
+  display: block;
+  color: #b996a0;
+  font-size: 11px;
+}
+
+.continuum-conflict-preview-grid b {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #f5dde3;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continuum-conflict-preview-grid p {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .continuum-conflict-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
-  flex: none;
+  flex: 0 0 320px;
 }
 
 .continuum-conflict-actions button {

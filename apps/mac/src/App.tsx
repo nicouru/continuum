@@ -2,6 +2,8 @@ import type { Editor } from "@tiptap/core"
 import type { StructuredNoteDraft } from "@continuum/core"
 import {
   createNewStructuredNoteDraft,
+  excerptFromPlainText,
+  extractStructuredDraftPlainText,
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
 import { emergencyIsNewer } from "@continuum/storage"
@@ -256,6 +258,15 @@ function textDocumentFromTextarea(value: string, idPrefix: string) {
     }))
 
   return blocks.length ? { blocks } : undefined
+}
+
+function getConflictPreview(draft: StructuredNoteDraft, version: number) {
+  return {
+    excerpt: excerptFromPlainText(extractStructuredDraftPlainText(draft)) || "Sin texto",
+    title: draft.title.trim() || "Sin titulo",
+    version,
+    writtenAt: draft.writtenAt,
+  }
 }
 
 export default function App() {
@@ -1269,6 +1280,16 @@ export default function App() {
 
   const prototype = continuumBootstrapPrototype(fullNote.structuredDraft)
   const selectedConflict = conflicts.find((conflict) => conflict.noteId === selectedId)
+  const selectedConflictRemoteDraft = getConflictRemoteDraft(selectedConflict)
+  const localConflictPreview = selectedConflict
+    ? getConflictPreview(fullNote.structuredDraft, fullNote.remoteVersion)
+    : null
+  const remoteConflictPreview = selectedConflictRemoteDraft
+    ? getConflictPreview(
+        selectedConflictRemoteDraft.structuredDraft,
+        selectedConflictRemoteDraft.remoteVersion,
+      )
+    : null
   const retryTime = formatRetryTime(syncStatus?.nextRetryAt ?? null)
 
   return (
@@ -1423,12 +1444,37 @@ export default function App() {
         />
         {selectedConflict ? (
           <section className="continuum-conflict-panel">
-            <div>
+            <div className="continuum-conflict-body">
               <strong>Conflicto remoto</strong>
               <p>
                 Esta nota cambió online antes de subir tu versión local. Podés
                 conservar tu copia, usar la versión online o duplicar tu copia local.
               </p>
+              <div className="continuum-conflict-preview-grid">
+                {localConflictPreview ? (
+                  <article>
+                    <span>Local · rev {localConflictPreview.version}</span>
+                    <b>{localConflictPreview.title}</b>
+                    <small>{localConflictPreview.writtenAt}</small>
+                    <p>{localConflictPreview.excerpt}</p>
+                  </article>
+                ) : null}
+                <article>
+                  <span>
+                    Remoto
+                    {remoteConflictPreview ? ` · rev ${remoteConflictPreview.version}` : ""}
+                  </span>
+                  {remoteConflictPreview ? (
+                    <>
+                      <b>{remoteConflictPreview.title}</b>
+                      <small>{remoteConflictPreview.writtenAt}</small>
+                      <p>{remoteConflictPreview.excerpt}</p>
+                    </>
+                  ) : (
+                    <p>El cuerpo remoto se va a pedir a Diario al resolver.</p>
+                  )}
+                </article>
+              </div>
             </div>
             <div className="continuum-conflict-actions">
               <button
