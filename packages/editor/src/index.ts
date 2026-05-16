@@ -7,6 +7,10 @@ export {
   getStringAttribute,
 } from "./editor-identity"
 export {
+  CONTINUUM_TRAILING_NODE_NOT_AFTER,
+  createContinuumStarterKit,
+} from "./editor-starter-kit"
+export {
   formatReferenceLabel,
   filterReferences,
   getReferenceLabelById,

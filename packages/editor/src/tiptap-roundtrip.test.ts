@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { normalizeStructuredNoteDraft } from "@continuum/core"
+import {
+  createEmptyStructuredNoteDraft,
+  normalizeStructuredNoteDraft,
+} from "@continuum/core"
 import {
   createStructuredDraftFromTipTapPrototypeDocument,
   createTipTapPrototypeDocumentFromStructuredDraft,
@@ -7,6 +10,45 @@ import {
 import type { TipTapJsonNode } from "./tiptap-types"
 
 describe("TipTap structured draft roundtrip", () => {
+  it("keeps a new empty draft to one editable block", () => {
+    const seed = normalizeStructuredNoteDraft(
+      createEmptyStructuredNoteDraft("2026-05-15T00:00:00.000Z"),
+    )
+
+    const prototype = createTipTapPrototypeDocumentFromStructuredDraft(seed)
+    const [firstNode] = prototype.tiptap.content ?? []
+
+    expect(prototype.tiptap.content).toHaveLength(1)
+    expect(firstNode?.type).toBe("structuredParagraph")
+
+    const restored = createStructuredDraftFromTipTapPrototypeDocument({
+      sourceDraft: seed,
+      tiptap: prototype.tiptap,
+    })
+
+    expect(restored.blocks).toHaveLength(1)
+    expect(restored.blocks[0]?.id).toBe("draft-block-1")
+  })
+
+  it("treats TipTap trailing empty paragraphs as editor-only structure", () => {
+    const seed = normalizeStructuredNoteDraft(
+      createEmptyStructuredNoteDraft("2026-05-15T00:00:00.000Z"),
+    )
+    const prototype = createTipTapPrototypeDocumentFromStructuredDraft(seed)
+    const tiptapWithTrailingParagraph: TipTapJsonNode = {
+      ...prototype.tiptap,
+      content: [...(prototype.tiptap.content ?? []), { type: "paragraph" }],
+    }
+
+    const restored = createStructuredDraftFromTipTapPrototypeDocument({
+      sourceDraft: seed,
+      tiptap: tiptapWithTrailingParagraph,
+    })
+
+    expect(restored.blocks).toHaveLength(1)
+    expect(restored.blocks[0]?.id).toBe("draft-block-1")
+  })
+
   it("preserves structural ids across conversions", () => {
     const seed = normalizeStructuredNoteDraft({
       aphorisms: [],

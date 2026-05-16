@@ -2,8 +2,8 @@ import type { Editor } from "@tiptap/core"
 import Placeholder from "@tiptap/extension-placeholder"
 import type { StructuredNoteDraft } from "@continuum/core"
 import { EditorContent, useEditor } from "@tiptap/react"
-import StarterKit from "@tiptap/starter-kit"
 import { useEffect, useRef } from "react"
+import { createContinuumStarterKit } from "./editor-starter-kit"
 import { adminTipTapExtensions } from "./extensions"
 import { normalizeEditorIdentity } from "./editor-identity"
 import { serializeTipTapClipboardNodesToPlainText } from "./tiptap-clipboard"
@@ -117,7 +117,7 @@ export function ContinuumEditor({
       },
     },
     extensions: [
-      StarterKit.configure({ blockquote: false, code: false }),
+      createContinuumStarterKit(),
       ...adminTipTapExtensions,
       Placeholder.configure({ placeholder: "Escribí acá..." }),
     ],
