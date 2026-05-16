@@ -201,7 +201,7 @@ export function ContinuumEditorMenu({
               Aforismo
             </MenuButton>
             <MenuButton icon="A*" onClick={onMarkAllParagraphsAsAphorisms}>
-              Todos los parrafos
+              Marcar todos como aforismos
             </MenuButton>
             <MenuButton
               disabled={!canModifyAphorism}
@@ -419,9 +419,17 @@ function MenuSection({
   icon: string
   title: string
 }) {
+  const [open, setOpen] = useState(defaultOpen)
+
   return (
-    <details className="continuum-menu-section" open={defaultOpen}>
-      <summary>
+    <details className="continuum-menu-section" open={open}>
+      <summary
+        onClick={(event) => {
+          event.preventDefault()
+          setOpen((current) => !current)
+        }}
+        onMouseDown={(event) => event.preventDefault()}
+      >
         <span className="continuum-menu-icon" aria-hidden="true">
           {icon}
         </span>
@@ -453,6 +461,7 @@ function MenuButton({
       className="continuum-menu-button"
       disabled={disabled}
       onClick={onClick}
+      onMouseDown={(event) => event.preventDefault()}
       title={title}
       type="button"
     >
@@ -652,6 +661,7 @@ function ReferenceCreateForm({
       <button
         className="continuum-menu-button continuum-menu-button-primary"
         disabled={creatingReference}
+        onMouseDown={(event) => event.preventDefault()}
         type="submit"
       >
         <span className="continuum-menu-icon" aria-hidden="true">

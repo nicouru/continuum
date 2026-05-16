@@ -1,4 +1,20 @@
+@font-face {
+  font-family: "Sabon Pro Roman";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/sabon-pro-roman/SabonProRoman.woff2") format("woff2");
+}
+
 .continuum-shell {
+  --continuum-editor-page-bg: #050505;
+  --continuum-editor-text: rgba(255, 251, 242, 0.89);
+  --continuum-editor-soft: #b8c7d5;
+  --continuum-editor-muted: #9fb2c5;
+  --continuum-editor-link: #8ec5ff;
+  --continuum-editor-reference-bg: rgba(142, 216, 255, 0.07);
+  --continuum-editor-reference-missing: #ff736f;
+  --continuum-editor-superscript: rgba(255, 255, 255, 0.8577);
   display: flex;
   height: 100vh;
   min-height: 0;
@@ -396,6 +412,7 @@ button:disabled {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  background: var(--continuum-editor-page-bg);
 }
 
 .continuum-meta-row {
@@ -426,32 +443,172 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap {
+  width: min(100%, 560px);
+  max-width: 560px;
+  margin: 4px auto 0;
   outline: none;
-  min-height: 480px;
-  padding: 16px 20px 48px;
-  font-size: 17px;
+  min-height: 520px;
+  padding: clamp(18px, 3vw, 32px);
+  color: var(--continuum-editor-text);
+  font-family:
+    "Sabon Pro Roman",
+    "Adobe Garamond Pro",
+    "EB Garamond",
+    "Cormorant Garamond",
+    Garamond,
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-kerning: normal;
+  font-size: 19px;
   font-weight: 400;
-  line-height: 1.55;
+  font-variant-ligatures: common-ligatures;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  hyphens: auto;
+  hyphenate-limit-chars: 6 3 3;
+  letter-spacing: 0.005em;
+  line-height: 1.35;
+  orphans: 2;
+  text-align: justify;
+  text-justify: inter-word;
+  text-rendering: optimizeLegibility;
+  white-space: pre-wrap;
+  widows: 2;
+  word-break: normal;
+  word-spacing: -0.01em;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  -webkit-hyphens: auto;
 }
 
 .continuum-editor-surface .tiptap p {
-  margin: 0 0 0.85rem;
+  margin: 0 0 1.25em;
 }
 
-.continuum-editor-surface blockquote {
-  margin: 0 0 1rem;
-  padding-left: 12px;
-  border-left: 2px solid #5a5a5a;
-  color: #d8d8d8;
+.continuum-editor-surface .tiptap p[data-node-type="aphorism"] {
+  margin-top: 2.85rem;
+}
+
+.continuum-editor-surface
+  .tiptap
+  > p[data-node-type="aphorism"]:first-child {
+  margin-top: 0.35rem;
+}
+
+.continuum-editor-surface .tiptap p:has(+ p[data-continuation="true"]) {
+  margin-bottom: 0;
+}
+
+.continuum-editor-surface .tiptap p[data-continuation="true"] {
+  margin-top: 0;
+}
+
+.continuum-editor-surface
+  .tiptap
+  p[data-node-type="aphorism"]:not([data-aphorism-label=""])::before {
+  color: var(--continuum-editor-text);
+  content: attr(data-aphorism-label);
+  display: block;
+  font-family:
+    "Sabon Pro Roman",
+    "Adobe Garamond Pro",
+    "EB Garamond",
+    "Cormorant Garamond",
+    Garamond,
+    Georgia,
+    "Times New Roman",
+    serif;
+  font-size: 1.08em;
+  font-variant-ligatures: discretionary-ligatures;
+  font-variant-numeric: oldstyle-nums proportional-nums;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin-bottom: 1.62rem;
+  opacity: 1;
+  text-align: center;
+}
+
+.continuum-editor-surface
+  .tiptap
+  p[data-node-type="aphorism"][data-aphorism-label="1"]::before {
+  font-variant-numeric: lining-nums proportional-nums;
+}
+
+.continuum-editor-surface .tiptap p[data-continuation="true"]::before {
+  content: none;
+}
+
+.continuum-editor-surface .tiptap h2 {
+  font-variant-ligatures: discretionary-ligatures;
+  font-variant-numeric: lining-nums proportional-nums;
+}
+
+.continuum-editor-surface .tiptap .versalitas {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.04em;
+}
+
+.continuum-editor-surface .tiptap blockquote {
+  margin: 1.5em 0;
+  padding: 0.8em 1em;
+  border-left: 2px solid var(--continuum-editor-link);
+  background: var(--continuum-editor-reference-bg);
+  color: var(--continuum-editor-soft);
+}
+
+.continuum-editor-surface
+  .tiptap
+  blockquote[data-node-type="reference-insert"]:not([data-reference-label=""])::after {
+  color: var(--continuum-editor-muted);
+  content: attr(data-reference-label);
+  display: block;
+  font-size: 0.72em;
+  line-height: 1.4;
+  margin-top: 0.7em;
+}
+
+.continuum-editor-surface
+  .tiptap
+  blockquote[data-node-type="reference-insert"][data-reference-state="unresolved"],
+.continuum-editor-surface
+  .tiptap
+  span[data-citation-id][data-reference-state="unresolved"] {
+  color: var(--continuum-editor-reference-missing);
 }
 
 .continuum-editor-surface .tiptap-inline-math {
-  display: inline-flex;
-  align-items: center;
+  color: inherit;
+  display: inline;
+  font-size: 0.96em;
+  margin: 0;
+  vertical-align: -0.04em;
+}
+
+.continuum-editor-surface .katex {
+  color: inherit;
+  font-size: 1em;
+  margin: 0;
+  padding: 0;
 }
 
 .continuum-editor-surface span[data-citation-id] {
-  color: #9cc2ff;
+  cursor: pointer;
+}
+
+.continuum-editor-surface span[data-citation-id]::after {
+  bottom: 0.6em;
+  color: var(--continuum-editor-superscript);
+  content: attr(data-citation-number);
+  font-size: 0.65em;
+  line-height: 0;
+  margin-left: 0.08em;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.continuum-editor-surface
+  span[data-citation-id][data-reference-state="unresolved"]::after {
+  color: var(--continuum-editor-reference-missing);
 }
 
 .continuum-editor-surface span[data-manual-indent-id] {
