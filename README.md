@@ -25,6 +25,7 @@ Implemented:
 - Persistent sync queue with retry/backoff.
 - Diario HTTP draft sync client.
 - Remote draft import on login.
+- Online Diario draft seed for new notes when authenticated.
 - Remote revision checks for Diario draft pushes.
 - Conflict surface with keep-local, use-remote, and duplicate-local resolution.
 - Split Vite vendor chunks for React, TipTap/ProseMirror, and KaTeX.

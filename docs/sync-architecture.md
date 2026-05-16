@@ -71,7 +71,10 @@ Target behavior:
 
 The Mac app now performs a startup/login pull for Diario drafts through the
 admin notes list plus per-note TipTap draft endpoint. It skips local notes that
-already have unpushed edits or conflicts.
+already have unpushed edits or conflicts. When authenticated and online, new
+notes use Diario's canonical `GET /api/admin/v1/tiptap-draft?new=1` seed so the
+local draft starts with the online reference library. If that request is absent
+or fails, Continuum falls back to a local empty seed.
 
 Expected latency:
 
