@@ -15,6 +15,7 @@
   --continuum-editor-reference-bg: rgba(142, 216, 255, 0.07);
   --continuum-editor-reference-missing: #ff736f;
   --continuum-editor-superscript: rgba(255, 255, 255, 0.8577);
+  --continuum-empty-caret-offset: 3px;
   display: flex;
   height: 100vh;
   min-height: 0;
@@ -483,6 +484,12 @@ button:disabled {
 
 .continuum-editor-surface .tiptap p {
   margin: 0 0 1.25em;
+}
+
+.continuum-editor-surface .tiptap p.is-editor-empty:first-child {
+  line-height: inherit;
+  min-height: 1.35em;
+  padding-top: var(--continuum-empty-caret-offset);
 }
 
 .continuum-editor-surface .tiptap p[data-node-type="aphorism"] {
