@@ -243,6 +243,21 @@ function parseOptionalIntegerInput(value: string) {
   return Number.isInteger(parsed) ? parsed : undefined
 }
 
+function textDocumentFromTextarea(value: string, idPrefix: string) {
+  const blocks = value
+    .split(/\n\s*\n/g)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((text, index) => ({
+      id: `${idPrefix}-${index + 1}`,
+      segments: [{ id: `${idPrefix}-${index + 1}-text`, text, type: "text" as const }],
+      text,
+      type: "paragraph" as const,
+    }))
+
+  return blocks.length ? { blocks } : undefined
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -1038,7 +1053,9 @@ export default function App() {
       authorBirthYear: "",
       authorDeathYear: "",
       body: "Nueva referencia",
+      comment: "",
       edition: "",
+      sourceText: "",
       translator: "",
       work: "",
       workDate: "",
@@ -1055,6 +1072,8 @@ export default function App() {
     const body = input.body.trim() || "Nueva referencia"
     const authorBirthYear = parseOptionalIntegerInput(input.authorBirthYear)
     const authorDeathYear = parseOptionalIntegerInput(input.authorDeathYear)
+    const comment = textDocumentFromTextarea(input.comment, `${refId}-comment`)
+    const sourceText = textDocumentFromTextarea(input.sourceText, `${refId}-source`)
     const nextDraft = normalizeStructuredNoteDraft({
       ...sourceDraft,
       references: [
@@ -1064,7 +1083,9 @@ export default function App() {
           ...(authorBirthYear !== undefined ? { authorBirthYear } : {}),
           ...(authorDeathYear !== undefined ? { authorDeathYear } : {}),
           body,
+          ...(comment ? { comment } : {}),
           ...(input.edition.trim() ? { edition: input.edition.trim() } : {}),
+          ...(sourceText ? { sourceText } : {}),
           ...(input.translator.trim() ? { translator: input.translator.trim() } : {}),
           ...(input.work.trim() ? { work: input.work.trim() } : {}),
           ...(input.workDate.trim() ? { workDate: input.workDate.trim() } : {}),

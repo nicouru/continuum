@@ -12,7 +12,9 @@ export type ContinuumEditorMenuReferenceInput = {
   authorBirthYear: string
   authorDeathYear: string
   body: string
+  comment: string
   edition: string
+  sourceText: string
   translator: string
   work: string
   workDate: string
@@ -132,7 +134,9 @@ export function ContinuumEditorMenu({
       authorBirthYear: "",
       authorDeathYear: "",
       body: "",
+      comment: "",
       edition: "",
+      sourceText: "",
       translator: "",
       work: "",
       workDate: "",
@@ -155,7 +159,9 @@ export function ContinuumEditorMenu({
       authorBirthYear: "",
       authorDeathYear: "",
       body: "",
+      comment: "",
       edition: "",
+      sourceText: "",
       translator: "",
       work: "",
       workDate: "",
@@ -605,6 +611,26 @@ function ReferenceCreateForm({
             value={input.translator}
             onChange={(event) =>
               onChange({ ...input, translator: event.currentTarget.value })
+            }
+          />
+        </label>
+        <label className="continuum-menu-field">
+          <span>Fuente</span>
+          <textarea
+            rows={3}
+            value={input.sourceText}
+            onChange={(event) =>
+              onChange({ ...input, sourceText: event.currentTarget.value })
+            }
+          />
+        </label>
+        <label className="continuum-menu-field">
+          <span>Comentario</span>
+          <textarea
+            rows={3}
+            value={input.comment}
+            onChange={(event) =>
+              onChange({ ...input, comment: event.currentTarget.value })
             }
           />
         </label>
