@@ -275,6 +275,68 @@
   color: #98d8b2;
 }
 
+.continuum-note-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: transparent;
+}
+
+.continuum-note-context-menu {
+  position: fixed;
+  z-index: 21;
+  min-width: 218px;
+  border: 1px solid #474747;
+  border-radius: 8px;
+  background: #050505;
+  box-shadow: 0 14px 38px rgb(0 0 0 / 0.58);
+  color: #ededed;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 4px;
+}
+
+.continuum-note-context-menu button {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #ededed;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  padding: 5px 8px;
+}
+
+.continuum-note-context-menu button:hover {
+  border-color: #333333;
+  background: #1e1e1e;
+}
+
+.continuum-note-context-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #d7d7d7;
+}
+
+.continuum-note-context-menu-icon svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
 button:disabled {
   cursor: default;
   opacity: 0.56;

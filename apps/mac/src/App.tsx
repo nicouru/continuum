@@ -211,15 +211,24 @@ function formatRetryTime(value: string | null) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 }
 
-function clampContextMenuPosition(x: number, y: number) {
+function clampFloatingMenuPosition(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
   const margin = 10
-  const menuWidth = 430
-  const menuHeight = Math.min(720, window.innerHeight - margin * 2)
+  const menuWidth = Math.min(width, window.innerWidth - margin * 2)
+  const menuHeight = Math.min(height, window.innerHeight - margin * 2)
 
   return {
     x: Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin)),
     y: Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin)),
   }
+}
+
+function clampContextMenuPosition(x: number, y: number) {
+  return clampFloatingMenuPosition(x, y, 430, 720)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -283,6 +292,18 @@ function NewNoteIcon() {
   )
 }
 
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M4 7h16" />
+      <path d="M9 7V4.5h6V7" />
+      <path d="M6.5 7l1 12.5h9L17.5 7" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  )
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -320,6 +341,17 @@ export default function App() {
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
     isOpen: false,
+    x: 0,
+    y: 0,
+  })
+  const [noteMenu, setNoteMenu] = useState<{
+    isOpen: boolean
+    noteIds: string[]
+    x: number
+    y: number
+  }>({
+    isOpen: false,
+    noteIds: [],
     x: 0,
     y: 0,
   })
@@ -427,16 +459,32 @@ export default function App() {
     setEditorMenu((current) => ({ ...current, isOpen: false }))
   }, [])
 
+  const closeNoteMenu = useCallback(() => {
+    setNoteMenu((current) => ({ ...current, isOpen: false, noteIds: [] }))
+  }, [])
+
   const handleEditorContextMenu = useCallback(
-    (event: MouseEvent) => {
+    (event: ReactMouseEvent<HTMLElement>) => {
       event.preventDefault()
+      event.stopPropagation()
+      closeNoteMenu()
       openEditorMenuAt(event.clientX, event.clientY)
     },
-    [openEditorMenuAt],
+    [closeNoteMenu, openEditorMenuAt],
   )
+
+  const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
+    const position = clampFloatingMenuPosition(x, y, 240, 56)
+    setNoteMenu({ isOpen: true, noteIds, ...position })
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && noteMenu.isOpen) {
+        closeNoteMenu()
+        return
+      }
+
       if (event.key === "Escape" && editorMenu.isOpen) {
         closeEditorMenu()
         return
@@ -466,7 +514,14 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [closeEditorMenu, editor, editorMenu.isOpen, openEditorMenuAt])
+  }, [
+    closeEditorMenu,
+    closeNoteMenu,
+    editor,
+    editorMenu.isOpen,
+    noteMenu.isOpen,
+    openEditorMenuAt,
+  ])
 
   useEffect(() => {
     const visibleIds = new Set(notes.map((note) => note.id))
@@ -899,6 +954,7 @@ export default function App() {
     event: ReactMouseEvent<HTMLButtonElement>,
     noteId: string,
   ) => {
+    closeNoteMenu()
     setSelectedId(noteId)
 
     if (event.shiftKey) {
@@ -927,6 +983,29 @@ export default function App() {
 
     setSelectedNoteIds([noteId])
     setSelectionAnchorId(noteId)
+  }
+
+  const handleNoteContextMenu = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    noteId: string,
+  ) => {
+    event.preventDefault()
+    event.stopPropagation()
+    closeEditorMenu()
+
+    const noteIsInSelection = selectedVisibleNoteIds.includes(noteId)
+    const targetIds =
+      noteIsInSelection && selectedVisibleNoteIds.length > 0
+        ? selectedVisibleNoteIds
+        : [noteId]
+
+    if (!noteIsInSelection) {
+      setSelectedId(noteId)
+      setSelectedNoteIds([noteId])
+      setSelectionAnchorId(noteId)
+    }
+
+    openNoteMenuAt(event.clientX, event.clientY, targetIds)
   }
 
   const handleCreateNote = async () => {
@@ -1187,21 +1266,16 @@ export default function App() {
     }
   }
 
-  const handleTrash = async () => {
+  const moveNotesToTrash = async (noteIds: string[]) => {
     if (!repo || folder !== "all") {
       return
     }
-    const noteIds =
-      selectedVisibleNoteIds.length > 0
-        ? selectedVisibleNoteIds
-        : selectedId
-          ? [selectedId]
-          : []
-    if (noteIds.length === 0) {
+    const uniqueNoteIds = [...new Set(noteIds)]
+    if (uniqueNoteIds.length === 0) {
       return
     }
     flushAutosaveTimer()
-    for (const noteId of noteIds) {
+    for (const noteId of uniqueNoteIds) {
       await repo.moveToTrash(noteId)
     }
     const nextNotes = await repo.listNotesMeta({ folder: "all" })
@@ -1210,8 +1284,31 @@ export default function App() {
     setSelectedId(nextSelectedId)
     setSelectedNoteIds(nextSelectedId ? [nextSelectedId] : [])
     setSelectionAnchorId(nextSelectedId)
-    setFullNote(nextSelectedId ? await repo.getNoteById(nextSelectedId) : null)
+    const nextFullNote = nextSelectedId ? await repo.getNoteById(nextSelectedId) : null
+    setFullNote(nextFullNote)
+    if (!nextFullNote) {
+      setLivePayload(null)
+      livePayloadRef.current = null
+      editorRef.current = null
+      setEditor(null)
+      closeEditorMenu()
+    }
+    closeNoteMenu()
     await refreshSyncStatus()
+  }
+
+  const handleTrash = async () => {
+    const noteIds =
+      selectedVisibleNoteIds.length > 0
+        ? selectedVisibleNoteIds
+        : selectedId
+          ? [selectedId]
+          : []
+    await moveNotesToTrash(noteIds)
+  }
+
+  const handleTrashFromNoteMenu = async () => {
+    await moveNotesToTrash(noteMenu.noteIds)
   }
 
   const handleRestore = async () => {
@@ -1536,6 +1633,7 @@ export default function App() {
                   .join(" ")}
                 aria-pressed={selectedNoteIdSet.has(note.id)}
                 onClick={(event) => handleSelectNoteFromList(event, note.id)}
+                onContextMenu={(event) => handleNoteContextMenu(event, note.id)}
               >
                 <div className="continuum-list-date">{note.writtenAt}</div>
                 <div className="continuum-list-title">
@@ -1560,6 +1658,31 @@ export default function App() {
           ⟩
         </button>
       )}
+
+      {noteMenu.isOpen ? (
+        <>
+          <div
+            className="continuum-note-menu-backdrop"
+            onMouseDown={closeNoteMenu}
+            onContextMenu={(event) => {
+              event.preventDefault()
+              closeNoteMenu()
+            }}
+          />
+          <div
+            className="continuum-note-context-menu"
+            style={{ left: noteMenu.x, top: noteMenu.y }}
+            onContextMenu={(event) => event.preventDefault()}
+          >
+            <button type="button" onClick={handleTrashFromNoteMenu}>
+              <span className="continuum-note-context-menu-icon">
+                <TrashIcon />
+              </span>
+              <span>Enviar a papelera</span>
+            </button>
+          </div>
+        </>
+      ) : null}
 
       <main className="continuum-main" ref={mainRef}>
         <ContinuumEditorMenu
