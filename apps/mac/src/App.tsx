@@ -1602,6 +1602,17 @@ export default function App() {
                 <button
                   type="button"
                   className="continuum-icon-button"
+                  onClick={() =>
+                    handleSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")
+                  }
+                  aria-label={appearanceMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+                  title={appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
+                >
+                  {appearanceMode === "dark" ? "☼" : "☾"}
+                </button>
+                <button
+                  type="button"
+                  className="continuum-icon-button continuum-new-note-button"
                   disabled={creatingNote}
                   onClick={handleCreateNote}
                   aria-label="Nueva nota"
@@ -1701,6 +1712,17 @@ export default function App() {
               <button
                 type="button"
                 className="continuum-icon-button"
+                onClick={() =>
+                  handleSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")
+                }
+                aria-label={appearanceMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+                title={appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
+              >
+                {appearanceMode === "dark" ? "☼" : "☾"}
+              </button>
+              <button
+                type="button"
+                className="continuum-icon-button continuum-new-note-button"
                 disabled={creatingNote}
                 onClick={handleCreateNote}
                 aria-label="Nueva nota"

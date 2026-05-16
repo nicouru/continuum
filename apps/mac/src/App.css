@@ -191,7 +191,7 @@
   color: rgb(0 0 0 / 0.58);
 }
 
-.continuum-brand .continuum-icon-button:first-child {
+.continuum-brand .continuum-new-note-button {
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -199,12 +199,12 @@
   background: #1a1a1a;
 }
 
-.continuum-shell[data-theme="light"] .continuum-brand .continuum-icon-button:first-child {
+.continuum-shell[data-theme="light"] .continuum-brand .continuum-new-note-button {
   border-color: rgba(29, 29, 27, 0.16);
   background: rgba(29, 29, 27, 0.045);
 }
 
-.continuum-brand .continuum-icon-button:first-child:hover:not(:disabled) {
+.continuum-brand .continuum-new-note-button:hover:not(:disabled) {
   border-color: #464646;
   background: #242424;
 }
@@ -400,7 +400,7 @@
   display: block;
   font-family: "Sabon Pro Roman", Georgia, serif;
   font-feature-settings: "onum" 1, "pnum" 1;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.25;
   color: #9b9b9b;
 }
