@@ -2,7 +2,12 @@ import type { Editor } from "@tiptap/core"
 import Placeholder from "@tiptap/extension-placeholder"
 import type { StructuredNoteDraft } from "@continuum/core"
 import { EditorContent, useEditor } from "@tiptap/react"
-import { useEffect, useRef, type MouseEventHandler } from "react"
+import {
+  useEffect,
+  useRef,
+  type FocusEventHandler,
+  type MouseEventHandler,
+} from "react"
 import { createContinuumStarterKit } from "./editor-starter-kit"
 import { adminTipTapExtensions } from "./extensions"
 import { normalizeEditorIdentity } from "./editor-identity"
@@ -30,6 +35,7 @@ export type ContinuumEditorProps = {
   onWrittenAtChange: (value: string) => void
   onPayload: (payload: ContinuumEditorPayload) => void
   onEditorContextMenu?: MouseEventHandler<HTMLDivElement>
+  onEditorFocus?: FocusEventHandler<HTMLDivElement>
   onReady?: (editor: Editor | null) => void
   showMetadataControls?: boolean
 }
@@ -44,6 +50,7 @@ export function ContinuumEditor({
   onWrittenAtChange,
   onPayload,
   onEditorContextMenu,
+  onEditorFocus,
   onReady,
   showMetadataControls = true,
 }: ContinuumEditorProps) {
@@ -185,7 +192,11 @@ export function ContinuumEditor({
           </label>
         </div>
       ) : null}
-      <div className="continuum-editor-surface" onContextMenu={onEditorContextMenu}>
+      <div
+        className="continuum-editor-surface"
+        onContextMenu={onEditorContextMenu}
+        onFocusCapture={onEditorFocus}
+      >
         <EditorContent editor={editor} />
       </div>
     </div>

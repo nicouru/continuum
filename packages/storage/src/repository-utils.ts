@@ -48,6 +48,7 @@ export function metaRow(row: Record<string, unknown>): NoteMeta {
     updatedAt: String(row.updatedAt),
     deletedAt: row.deletedAt ? String(row.deletedAt) : null,
     excerpt: String(row.excerpt ?? ""),
+    plainText: String(row.plainText ?? ""),
     localVersion: Number(row.localVersion ?? 0),
     remoteVersion: Number(row.remoteVersion ?? 0),
     syncState: row.syncState as NoteSyncState,

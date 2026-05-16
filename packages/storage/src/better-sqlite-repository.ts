@@ -222,12 +222,12 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       const sql =
         filter.folder === "trash"
           ? `SELECT id, slug, status, title, written_at AS writtenAt, created_at AS createdAt,
-                  updated_at AS updatedAt, deleted_at AS deletedAt, excerpt,
+                  updated_at AS updatedAt, deleted_at AS deletedAt, plain_text AS plainText, excerpt,
                   local_version AS localVersion, remote_version AS remoteVersion,
                   sync_state AS syncState, last_synced_at AS lastSyncedAt
              FROM notes WHERE status = 'trashed' ORDER BY created_at DESC`
           : `SELECT id, slug, status, title, written_at AS writtenAt, created_at AS createdAt,
-                  updated_at AS updatedAt, deleted_at AS deletedAt, excerpt,
+                  updated_at AS updatedAt, deleted_at AS deletedAt, plain_text AS plainText, excerpt,
                   local_version AS localVersion, remote_version AS remoteVersion,
                   sync_state AS syncState, last_synced_at AS lastSyncedAt
              FROM notes WHERE status != 'trashed' ORDER BY created_at DESC`

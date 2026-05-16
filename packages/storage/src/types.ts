@@ -21,6 +21,7 @@ export type NoteMeta = {
   updatedAt: string
   deletedAt: string | null
   excerpt: string
+  plainText: string
   localVersion: number
   remoteVersion: number
   syncState: NoteSyncState

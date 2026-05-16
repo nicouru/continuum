@@ -64,7 +64,45 @@ import {
   ContinuumEditorMenu,
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
+import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
 import "./App.css"
+
+const SIDEBAR_MIN_WIDTH = 250
+const SIDEBAR_MAX_WIDTH = 460
+const SIDEBAR_DEFAULT_WIDTH = 320
+
+const MONTHS_ES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Setiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+]
+
+function clampSidebarWidth(value: number) {
+  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(value, SIDEBAR_MAX_WIDTH))
+}
+
+function formatDiaryDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number)
+
+  if (!year || !month || !day || !MONTHS_ES[month - 1]) {
+    return value
+  }
+
+  return `${day} de ${MONTHS_ES[month - 1]} de ${year}`
+}
+
+function getNotePreviewText(note: NoteMeta) {
+  return note.plainText.trim() || note.excerpt.trim()
+}
 
 function bootstrapErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -283,11 +321,10 @@ function getConflictPreview(draft: StructuredNoteDraft, version: number) {
 function NewNoteIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-      <path d="M5 4.5h9.5" />
-      <path d="M5 19.5h14" />
-      <path d="M5 4.5v15" />
-      <path d="M18.5 10.5v9" />
-      <path d="M9 14.8 17.2 6.6l2.2 2.2-8.2 8.2H9z" />
+      <path d="M5 5h10.5" />
+      <path d="M5 5v14h14V8.5" />
+      <path d="M9 15l1.1-3.7 6.6-6.6 2.6 2.6-6.6 6.6z" />
+      <path d="M15.5 5.9l2.6 2.6" />
     </svg>
   )
 }
@@ -301,6 +338,15 @@ function TrashIcon() {
       <path d="M10 11v5" />
       <path d="M14 11v5" />
     </svg>
+  )
+}
+
+function BrandMark() {
+  return (
+    <span className="continuum-brand-mark">
+      <img src={brandLogoUrl} alt="" width="22" height="22" />
+      <span>Continuum</span>
+    </span>
   )
 }
 
@@ -318,6 +364,9 @@ export default function App() {
   const [creatingNote, setCreatingNote] = useState(false)
 
   const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
+  const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
+  const [newlyCreatedNoteId, setNewlyCreatedNoteId] = useState<string | null>(null)
   const [folder, setFolder] = useState<"all" | "trash">("all")
   const [notes, setNotes] = useState<NoteMeta[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -468,6 +517,7 @@ export default function App() {
       event.preventDefault()
       event.stopPropagation()
       closeNoteMenu()
+      setSidebarSelectionFocus(false)
       openEditorMenuAt(event.clientX, event.clientY)
     },
     [closeNoteMenu, openEditorMenuAt],
@@ -552,6 +602,14 @@ export default function App() {
   }, [notes, selectedId, selectedNoteIds.length, selectionAnchorId])
 
   useEffect(() => {
+    if (!newlyCreatedNoteId) {
+      return
+    }
+    const id = window.setTimeout(() => setNewlyCreatedNoteId(null), 700)
+    return () => window.clearTimeout(id)
+  }, [newlyCreatedNoteId])
+
+  useEffect(() => {
     let active = true
     void (async () => {
       let step = "abrir repositorio local"
@@ -569,6 +627,7 @@ export default function App() {
         setRepo(nextRepo)
         setDeviceId(devId)
         setSidebarVisible(prefs.sidebarVisible)
+        setSidebarWidth(clampSidebarWidth(prefs.sidebarWidth))
         setAuthSession(session)
         setAuthLoaded(true)
         step = "leer biblioteca local"
@@ -950,11 +1009,35 @@ export default function App() {
     void writePreferences({ sidebarVisible: next })
   }
 
+  const handleSidebarResizeMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidebarWidth
+    document.body.classList.add("continuum-sidebar-is-resizing")
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX))
+    }
+
+    const handleUp = (upEvent: MouseEvent) => {
+      const nextWidth = clampSidebarWidth(startWidth + upEvent.clientX - startX)
+      setSidebarWidth(nextWidth)
+      void writePreferences({ sidebarWidth: nextWidth })
+      document.body.classList.remove("continuum-sidebar-is-resizing")
+      window.removeEventListener("mousemove", handleMove)
+      window.removeEventListener("mouseup", handleUp)
+    }
+
+    window.addEventListener("mousemove", handleMove)
+    window.addEventListener("mouseup", handleUp)
+  }
+
   const handleSelectNoteFromList = (
     event: ReactMouseEvent<HTMLButtonElement>,
     noteId: string,
   ) => {
     closeNoteMenu()
+    setSidebarSelectionFocus(true)
     setSelectedId(noteId)
 
     if (event.shiftKey) {
@@ -992,6 +1075,7 @@ export default function App() {
     event.preventDefault()
     event.stopPropagation()
     closeEditorMenu()
+    setSidebarSelectionFocus(true)
 
     const noteIsInSelection = selectedVisibleNoteIds.includes(noteId)
     const targetIds =
@@ -1031,6 +1115,8 @@ export default function App() {
       const nextNotes = await repo.listNotesMeta({ folder: "all" })
       setFolder("all")
       setNotes(nextNotes)
+      setSidebarSelectionFocus(false)
+      setNewlyCreatedNoteId(saved.id)
       setSelectedId(saved.id)
       setSelectedNoteIds([saved.id])
       setSelectionAnchorId(saved.id)
@@ -1483,9 +1569,10 @@ export default function App() {
     return (
       <div className="continuum-shell">
         {sidebarVisible ? (
-          <aside className="continuum-sidebar">
+          <>
+          <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
             <header className="continuum-brand">
-              <span>Continuum</span>
+              <BrandMark />
               <div className="continuum-brand-actions">
                 <button
                   type="button"
@@ -1520,12 +1607,22 @@ export default function App() {
                 type="button"
                 className={folder === "trash" ? "active" : ""}
                 onClick={() => setFolder("trash")}
+                aria-label="Papelera"
+                title="Papelera"
               >
-                Papelera
+                <TrashIcon />
               </button>
             </nav>
             <div className="continuum-list" />
           </aside>
+          <div
+            className="continuum-sidebar-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Cambiar ancho de la lista"
+            onMouseDown={handleSidebarResizeMouseDown}
+          />
+          </>
         ) : (
           <button
             type="button"
@@ -1571,9 +1668,10 @@ export default function App() {
   return (
     <div className="continuum-shell">
       {sidebarVisible ? (
-        <aside className="continuum-sidebar">
+        <>
+        <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
           <header className="continuum-brand">
-            <span>Continuum</span>
+            <BrandMark />
             <div className="continuum-brand-actions">
               <button
                 type="button"
@@ -1608,8 +1706,10 @@ export default function App() {
               type="button"
               className={folder === "trash" ? "active" : ""}
               onClick={() => setFolder("trash")}
+              aria-label="Papelera"
+              title="Papelera"
             >
-              Papelera
+              <TrashIcon />
             </button>
           </nav>
           {folder === "all" && selectedVisibleNoteIds.length > 1 ? (
@@ -1621,33 +1721,54 @@ export default function App() {
             </div>
           ) : null}
           <div className="continuum-list">
-            {notes.map((note) => (
-              <button
-                key={note.id}
-                type="button"
-                className={[
-                  note.id === selectedId ? "active" : "",
-                  selectedNoteIdSet.has(note.id) ? "selected" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-pressed={selectedNoteIdSet.has(note.id)}
-                onClick={(event) => handleSelectNoteFromList(event, note.id)}
-                onContextMenu={(event) => handleNoteContextMenu(event, note.id)}
-              >
-                <div className="continuum-list-date">{note.writtenAt}</div>
-                <div className="continuum-list-title">
-                  {note.title?.trim() || note.excerpt || "Borrador"}
-                </div>
-                <div
-                  className={`continuum-list-sync continuum-list-sync--${note.syncState}`}
+            {notes.map((note) => {
+              const titleText = note.title.trim()
+              const previewText = getNotePreviewText(note) || "Nota vacía"
+              const isActive = note.id === selectedId
+              const hasListFocus = sidebarSelectionFocus && isActive
+
+              return (
+                <button
+                  key={note.id}
+                  type="button"
+                  className={[
+                    "continuum-list-row",
+                    isActive ? "active" : "",
+                    hasListFocus ? "list-focused" : "",
+                    selectedNoteIdSet.has(note.id) ? "selected" : "",
+                    newlyCreatedNoteId === note.id ? "newly-created" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-pressed={selectedNoteIdSet.has(note.id)}
+                  onClick={(event) => handleSelectNoteFromList(event, note.id)}
+                  onContextMenu={(event) => handleNoteContextMenu(event, note.id)}
                 >
-                  {syncStateLabel(note.syncState)}
-                </div>
-              </button>
-            ))}
+                  <time className="continuum-list-date" dateTime={note.writtenAt}>
+                    {formatDiaryDate(note.writtenAt)}
+                  </time>
+                  {titleText ? (
+                    <div className="continuum-list-title">{titleText}</div>
+                  ) : null}
+                  <div className="continuum-list-preview">{previewText}</div>
+                  <div
+                    className={`continuum-list-sync continuum-list-sync--${note.syncState}`}
+                  >
+                    {syncStateLabel(note.syncState)}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </aside>
+        <div
+          className="continuum-sidebar-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Cambiar ancho de la lista"
+          onMouseDown={handleSidebarResizeMouseDown}
+        />
+        </>
       ) : (
         <button
           type="button"
@@ -1844,6 +1965,7 @@ export default function App() {
           noteId={fullNote.id}
           onPayload={handleEditorPayload}
           onEditorContextMenu={handleEditorContextMenu}
+          onEditorFocus={() => setSidebarSelectionFocus(false)}
           onReady={(editor) => {
             editorRef.current = editor
             setEditor(editor)
