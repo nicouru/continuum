@@ -1,6 +1,8 @@
 .continuum-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
   background: #050505;
   color: #e8e8e8;
   font-family:
@@ -85,6 +87,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   border-right: 1px solid #323232;
   background: #0a0a0a;
 }
@@ -101,12 +104,40 @@
   border-bottom: 1px solid #2f2f2f;
 }
 
-.continuum-brand button {
-  border: 0;
+.continuum-brand-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.continuum-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   background: transparent;
   color: #a6a6a6;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 0;
+}
+
+.continuum-icon-button:hover:not(:disabled) {
+  border-color: #333333;
+  background: #171717;
+  color: #ededed;
+}
+
+.continuum-icon-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .continuum-folders {
@@ -130,6 +161,26 @@
 .continuum-folders button.active {
   border-color: #565656;
   background: #1d1d1d;
+}
+
+.continuum-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 8px;
+  color: #a8a8a8;
+  font-size: 11px;
+}
+
+.continuum-bulk-actions button {
+  border-radius: 5px;
+  border: 1px solid #4b3333;
+  background: #181010;
+  color: #f0c7c7;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 5px 8px;
 }
 
 .continuum-list {
@@ -158,6 +209,11 @@
 .continuum-list button.active {
   border-color: #555555;
   background: #202020;
+}
+
+.continuum-list button.selected:not(.active) {
+  border-color: #3f3f3f;
+  background: #171717;
 }
 
 .continuum-list-date {
@@ -203,18 +259,6 @@
   color: #98d8b2;
 }
 
-.continuum-new-note {
-  margin: 8px;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #3c3c3c;
-  background: #151515;
-  color: #eeeeee;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-}
-
 button:disabled {
   cursor: default;
   opacity: 0.56;
@@ -234,7 +278,10 @@ button:disabled {
   flex: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .continuum-empty {
@@ -342,6 +389,13 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+
+.continuum-editor-surface {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .continuum-meta-row {

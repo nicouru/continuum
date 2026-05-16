@@ -40,7 +40,7 @@ import type {
   SyncStatusSummary,
 } from "@continuum/storage/types"
 import { DraftSyncEngine } from "@continuum/sync"
-import type { FormEvent } from "react"
+import type { FormEvent, MouseEvent as ReactMouseEvent } from "react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   clearDiarioAuthSession,
@@ -271,6 +271,18 @@ function getConflictPreview(draft: StructuredNoteDraft, version: number) {
   }
 }
 
+function NewNoteIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+      <path d="M5 4.5h9.5" />
+      <path d="M5 19.5h14" />
+      <path d="M5 4.5v15" />
+      <path d="M18.5 10.5v9" />
+      <path d="M9 14.8 17.2 6.6l2.2 2.2-8.2 8.2H9z" />
+    </svg>
+  )
+}
+
 export default function App() {
   const [repo, setRepo] = useState<AsyncSqlNoteRepository | null>(null)
   const [deviceId, setDeviceId] = useState("")
@@ -288,6 +300,8 @@ export default function App() {
   const [folder, setFolder] = useState<"all" | "trash">("all")
   const [notes, setNotes] = useState<NoteMeta[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([])
+  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null)
   const [fullNote, setFullNote] = useState<NoteFull | null>(null)
 
   const [title, setTitle] = useState("")
@@ -322,6 +336,10 @@ export default function App() {
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
+  const selectedNoteIdSet = useMemo(
+    () => new Set(selectedNoteIds),
+    [selectedNoteIds],
+  )
   const activeDraft = livePayload?.structuredDraft ?? fullNote?.structuredDraft ?? null
   const hasSelection = editor ? !editor.state.selection.empty : false
   const selectionIncludesInlineMath = useMemo(
@@ -358,6 +376,10 @@ export default function App() {
       !offline &&
       (isPublished ? remote.client.unpublishNote : remote.client.publishNote),
   )
+  const selectedVisibleNoteIds = useMemo(() => {
+    const visibleIds = new Set(notes.map((note) => note.id))
+    return selectedNoteIds.filter((id) => visibleIds.has(id))
+  }, [notes, selectedNoteIds])
 
   const refreshList = useCallback(async () => {
     if (!repo) {
@@ -439,17 +461,32 @@ export default function App() {
   }, [closeEditorMenu, editor, editorMenu.isOpen, openEditorMenuAt])
 
   useEffect(() => {
-    if (!selectedId) {
-      return
+    const visibleIds = new Set(notes.map((note) => note.id))
+    setSelectedNoteIds((current) => {
+      const next = current.filter((id) => visibleIds.has(id))
+      return next.length === current.length ? current : next
+    })
+    if (selectionAnchorId && !visibleIds.has(selectionAnchorId)) {
+      setSelectionAnchorId(null)
     }
     if (notes.length === 0) {
       setSelectedId(null)
+      setSelectedNoteIds([])
+      setSelectionAnchorId(null)
       return
     }
-    if (!notes.some((note) => note.id === selectedId)) {
-      setSelectedId(notes[0]?.id ?? null)
+    if (!selectedId || !visibleIds.has(selectedId)) {
+      const nextId = notes[0]?.id ?? null
+      setSelectedId(nextId)
+      setSelectedNoteIds(nextId ? [nextId] : [])
+      setSelectionAnchorId(nextId)
+      return
     }
-  }, [notes, selectedId])
+    if (selectedNoteIds.length === 0) {
+      setSelectedNoteIds([selectedId])
+      setSelectionAnchorId(selectedId)
+    }
+  }, [notes, selectedId, selectedNoteIds.length, selectionAnchorId])
 
   useEffect(() => {
     let active = true
@@ -850,6 +887,40 @@ export default function App() {
     void writePreferences({ sidebarVisible: next })
   }
 
+  const handleSelectNoteFromList = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+    noteId: string,
+  ) => {
+    setSelectedId(noteId)
+
+    if (event.shiftKey) {
+      const anchor = selectionAnchorId ?? selectedId ?? noteId
+      const anchorIndex = notes.findIndex((note) => note.id === anchor)
+      const noteIndex = notes.findIndex((note) => note.id === noteId)
+      if (anchorIndex >= 0 && noteIndex >= 0) {
+        const [start, end] =
+          anchorIndex < noteIndex ? [anchorIndex, noteIndex] : [noteIndex, anchorIndex]
+        setSelectedNoteIds(notes.slice(start, end + 1).map((note) => note.id))
+        return
+      }
+    }
+
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedNoteIds((current) => {
+        const exists = current.includes(noteId)
+        const next = exists
+          ? current.filter((id) => id !== noteId)
+          : [...current, noteId]
+        return next.length ? next : [noteId]
+      })
+      setSelectionAnchorId(noteId)
+      return
+    }
+
+    setSelectedNoteIds([noteId])
+    setSelectionAnchorId(noteId)
+  }
+
   const handleCreateNote = async () => {
     if (!repo || !deviceId || creatingNote) {
       return
@@ -874,6 +945,8 @@ export default function App() {
       setFolder("all")
       setNotes(nextNotes)
       setSelectedId(saved.id)
+      setSelectedNoteIds([saved.id])
+      setSelectionAnchorId(saved.id)
       setFullNote(saved)
       await refreshSyncStatus()
     } finally {
@@ -1092,6 +1165,8 @@ export default function App() {
       }
       if (duplicate) {
         setSelectedId(duplicate.id)
+        setSelectedNoteIds([duplicate.id])
+        setSelectionAnchorId(duplicate.id)
         setFullNote(duplicate)
         setSyncLabel(remoteDraft ? "Local duplicado" : "Local duplicado; conflicto pendiente")
       } else {
@@ -1105,13 +1180,29 @@ export default function App() {
   }
 
   const handleTrash = async () => {
-    if (!repo || !selectedId || folder !== "all") {
+    if (!repo || folder !== "all") {
+      return
+    }
+    const noteIds =
+      selectedVisibleNoteIds.length > 0
+        ? selectedVisibleNoteIds
+        : selectedId
+          ? [selectedId]
+          : []
+    if (noteIds.length === 0) {
       return
     }
     flushAutosaveTimer()
-    await repo.moveToTrash(selectedId)
-    setSelectedId(null)
-    await refreshList()
+    for (const noteId of noteIds) {
+      await repo.moveToTrash(noteId)
+    }
+    const nextNotes = await repo.listNotesMeta({ folder: "all" })
+    const nextSelectedId = nextNotes[0]?.id ?? null
+    setNotes(nextNotes)
+    setSelectedId(nextSelectedId)
+    setSelectedNoteIds(nextSelectedId ? [nextSelectedId] : [])
+    setSelectionAnchorId(nextSelectedId)
+    setFullNote(nextSelectedId ? await repo.getNoteById(nextSelectedId) : null)
     await refreshSyncStatus()
   }
 
@@ -1121,7 +1212,10 @@ export default function App() {
     }
     await repo.restoreFromTrash(selectedId)
     setFolder("all")
-    await refreshList()
+    const nextNotes = await repo.listNotesMeta({ folder: "all" })
+    setNotes(nextNotes)
+    setSelectedNoteIds([selectedId])
+    setSelectionAnchorId(selectedId)
     await refreshSyncStatus()
   }
 
@@ -1287,9 +1381,27 @@ export default function App() {
           <aside className="continuum-sidebar">
             <header className="continuum-brand">
               <span>Continuum</span>
-              <button type="button" onClick={handleToggleSidebar} aria-label="Ocultar panel">
-                ⟨
-              </button>
+              <div className="continuum-brand-actions">
+                <button
+                  type="button"
+                  className="continuum-icon-button"
+                  disabled={creatingNote}
+                  onClick={handleCreateNote}
+                  aria-label="Nueva nota"
+                  title="Nueva nota"
+                >
+                  <NewNoteIcon />
+                </button>
+                <button
+                  type="button"
+                  className="continuum-icon-button"
+                  onClick={handleToggleSidebar}
+                  aria-label="Ocultar panel"
+                  title="Ocultar panel"
+                >
+                  ⟨
+                </button>
+              </div>
             </header>
             <nav className="continuum-folders">
               <button
@@ -1308,14 +1420,6 @@ export default function App() {
               </button>
             </nav>
             <div className="continuum-list" />
-            <button
-              type="button"
-              className="continuum-new-note"
-              disabled={creatingNote}
-              onClick={handleCreateNote}
-            >
-              Nueva nota
-            </button>
           </aside>
         ) : (
           <button
@@ -1365,9 +1469,27 @@ export default function App() {
         <aside className="continuum-sidebar">
           <header className="continuum-brand">
             <span>Continuum</span>
-            <button type="button" onClick={handleToggleSidebar} aria-label="Ocultar panel">
-              ⟨
-            </button>
+            <div className="continuum-brand-actions">
+              <button
+                type="button"
+                className="continuum-icon-button"
+                disabled={creatingNote}
+                onClick={handleCreateNote}
+                aria-label="Nueva nota"
+                title="Nueva nota"
+              >
+                <NewNoteIcon />
+              </button>
+              <button
+                type="button"
+                className="continuum-icon-button"
+                onClick={handleToggleSidebar}
+                aria-label="Ocultar panel"
+                title="Ocultar panel"
+              >
+                ⟨
+              </button>
+            </div>
           </header>
           <nav className="continuum-folders">
             <button
@@ -1385,13 +1507,27 @@ export default function App() {
               Papelera
             </button>
           </nav>
+          {folder === "all" && selectedVisibleNoteIds.length > 1 ? (
+            <div className="continuum-bulk-actions">
+              <span>{selectedVisibleNoteIds.length} seleccionadas</span>
+              <button type="button" onClick={handleTrash}>
+                Papelera
+              </button>
+            </div>
+          ) : null}
           <div className="continuum-list">
             {notes.map((note) => (
               <button
                 key={note.id}
                 type="button"
-                className={note.id === selectedId ? "active" : ""}
-                onClick={() => setSelectedId(note.id)}
+                className={[
+                  note.id === selectedId ? "active" : "",
+                  selectedNoteIdSet.has(note.id) ? "selected" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-pressed={selectedNoteIdSet.has(note.id)}
+                onClick={(event) => handleSelectNoteFromList(event, note.id)}
               >
                 <div className="continuum-list-date">{note.writtenAt}</div>
                 <div className="continuum-list-title">
@@ -1405,14 +1541,6 @@ export default function App() {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            className="continuum-new-note"
-            disabled={creatingNote}
-            onClick={handleCreateNote}
-          >
-            Nueva nota
-          </button>
         </aside>
       ) : (
         <button
