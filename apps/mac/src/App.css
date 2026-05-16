@@ -750,8 +750,8 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap {
-  width: min(100%, 560px);
-  max-width: 560px;
+  width: min(100%, 500px);
+  max-width: 500px;
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
