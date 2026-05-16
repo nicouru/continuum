@@ -127,4 +127,100 @@ describe("SQLite repository", () => {
     expect(repo.listDirtyIds()).toEqual([draft.id])
     expect(repo.listOpenConflicts()).toHaveLength(0)
   })
+
+  it("resolves conflicts by applying the remote draft and preserving a local revision", () => {
+    const db = new Database(":memory:")
+    migrateBetterSqlite(db)
+    const repo = createBetterSqlNoteRepository(db)
+    const deviceId = repo.ensureDeviceId()
+    const localDraft = normalizeStructuredNoteDraft({
+      ...createNewStructuredNoteDraft(new Date(), []),
+      title: "Local text",
+    })
+    const remoteDraft = normalizeStructuredNoteDraft({
+      ...localDraft,
+      title: "Remote text",
+    })
+
+    repo.saveNote({
+      bumpLocalVersion: true,
+      deviceId,
+      remoteVersion: 1,
+      structuredDraft: localDraft,
+      syncState: "dirty",
+      tiptapJson: { content: [{ text: "local", type: "text" }], type: "doc" },
+    })
+    repo.recordConflict(localDraft.id, { local: true }, { serverRemoteVersion: 4 })
+
+    repo.resolveConflictUseRemote({
+      noteId: localDraft.id,
+      remoteVersion: 4,
+      structuredDraft: remoteDraft,
+      tiptapJson: { content: [{ text: "remote", type: "text" }], type: "doc" },
+    })
+
+    const note = repo.getNoteById(localDraft.id)
+    expect(note?.title).toBe("Remote text")
+    expect(note?.remoteVersion).toBe(4)
+    expect(note?.syncState).toBe("synced")
+    expect(repo.listDirtyIds()).toEqual([])
+    expect(repo.listOpenConflicts()).toHaveLength(0)
+    expect(
+      (
+        db
+          .prepare(`SELECT COUNT(*) AS count FROM sync_queue WHERE note_id = ?`)
+          .get(localDraft.id) as { count: number }
+      ).count,
+    ).toBe(0)
+    expect(
+      (
+        db
+          .prepare(`SELECT COUNT(*) AS count FROM note_revisions WHERE note_id = ?`)
+          .get(localDraft.id) as { count: number }
+      ).count,
+    ).toBe(1)
+  })
+
+  it("duplicates the local conflict draft before applying the remote original", () => {
+    const db = new Database(":memory:")
+    migrateBetterSqlite(db)
+    const repo = createBetterSqlNoteRepository(db)
+    const deviceId = repo.ensureDeviceId()
+    const localDraft = normalizeStructuredNoteDraft({
+      ...createNewStructuredNoteDraft(new Date(), []),
+      title: "Local survivor",
+    })
+    const remoteDraft = normalizeStructuredNoteDraft({
+      ...localDraft,
+      title: "Remote original",
+    })
+
+    repo.saveNote({
+      bumpLocalVersion: true,
+      deviceId,
+      remoteVersion: 2,
+      structuredDraft: localDraft,
+      syncState: "dirty",
+      tiptapJson: { content: [], type: "doc" },
+    })
+    repo.recordConflict(localDraft.id, { local: true }, { serverRemoteVersion: 5 })
+
+    const duplicate = repo.duplicateNoteAsLocalDraft(localDraft.id, deviceId)
+    repo.resolveConflictUseRemote({
+      noteId: localDraft.id,
+      remoteVersion: 5,
+      structuredDraft: remoteDraft,
+      tiptapJson: { content: [{ text: "remote", type: "text" }], type: "doc" },
+    })
+
+    expect(duplicate?.id).toBeTruthy()
+    expect(duplicate?.id).not.toBe(localDraft.id)
+    expect(duplicate?.title).toBe("Local survivor (copia local)")
+    expect(duplicate?.remoteVersion).toBe(0)
+    expect(duplicate?.syncState).toBe("dirty")
+    expect(repo.getNoteById(localDraft.id)?.title).toBe("Remote original")
+    expect(repo.getNoteById(localDraft.id)?.syncState).toBe("synced")
+    expect(repo.listDirtyIds()).toEqual([duplicate?.id])
+    expect(repo.listOpenConflicts()).toHaveLength(0)
+  })
 })

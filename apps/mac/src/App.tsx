@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core"
+import type { StructuredNoteDraft } from "@continuum/core"
 import {
   createNewStructuredNoteDraft,
   normalizeStructuredNoteDraft,
@@ -125,6 +126,72 @@ function getConflictRemoteVersion(conflict: SyncConflictRecord | undefined) {
     }
   }
   return null
+}
+
+type ConflictRemoteDraft = {
+  remoteVersion: number
+  structuredDraft: StructuredNoteDraft
+  tiptapJson?: unknown
+}
+
+function getConflictRemoteDraft(conflict: SyncConflictRecord | undefined): ConflictRemoteDraft | null {
+  const payload = conflict?.remotePayload
+  if (!isRecord(payload)) {
+    return null
+  }
+
+  const fromDirectPayload = parseConflictRemoteDraftValue(
+    payload.remoteDraft,
+    getConflictRemoteVersion(conflict),
+  )
+  if (fromDirectPayload) {
+    return fromDirectPayload
+  }
+
+  if (isRecord(payload.body) && isRecord(payload.body.error)) {
+    const details = payload.body.error.details
+    if (isRecord(details)) {
+      return parseConflictRemoteDraftValue(
+        details.remoteDraft,
+        getConflictRemoteVersion(conflict),
+      )
+    }
+  }
+
+  return null
+}
+
+function parseConflictRemoteDraftValue(
+  value: unknown,
+  fallbackVersion: number | null,
+): ConflictRemoteDraft | null {
+  if (!isRecord(value)) {
+    return null
+  }
+  const sourceDraft = isRecord(value.structuredDraft)
+    ? value.structuredDraft
+    : isRecord(value.draft)
+      ? value.draft
+      : null
+  if (!sourceDraft) {
+    return null
+  }
+  const remoteVersion =
+    typeof value.remoteVersion === "number"
+      ? value.remoteVersion
+      : isRecord(value.sync) && typeof value.sync.remoteRevision === "number"
+        ? value.sync.remoteRevision
+        : isRecord(value.sync) && typeof value.sync.remoteVersion === "number"
+          ? value.sync.remoteVersion
+          : fallbackVersion
+  if (typeof remoteVersion !== "number") {
+    return null
+  }
+  return {
+    remoteVersion,
+    structuredDraft: normalizeStructuredNoteDraft(sourceDraft),
+    tiptapJson: value.tiptapJson,
+  }
 }
 
 function formatRetryTime(value: string | null) {
@@ -799,6 +866,85 @@ export default function App() {
     }
   }
 
+  const handleUseRemoteConflict = async () => {
+    if (!repo || !selectedId || !fullNote || syncBusy) {
+      return
+    }
+    const conflict = conflicts.find((item) => item.noteId === selectedId)
+    if (!conflict) {
+      return
+    }
+    setSyncBusy(true)
+    setSyncLabel("Aplicando remoto…")
+    try {
+      const remoteDraft =
+        getConflictRemoteDraft(conflict) ??
+        (await remote.client.fetchRemoteDraft?.(selectedId))
+      if (!remoteDraft) {
+        setSyncLabel("Remoto no disponible")
+        return
+      }
+      await repo.resolveConflictUseRemote({
+        noteId: selectedId,
+        remoteVersion: remoteDraft.remoteVersion,
+        structuredDraft: remoteDraft.structuredDraft,
+        tiptapJson:
+          remoteDraft.tiptapJson ??
+          continuumBootstrapPrototype(remoteDraft.structuredDraft).tiptap,
+      })
+      await refreshList()
+      await refreshSyncStatus()
+      const next = await repo.getNoteById(selectedId)
+      setFullNote(next)
+      setSyncLabel("Remoto aplicado")
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
+  const handleDuplicateLocalConflict = async () => {
+    if (!repo || !selectedId || !fullNote || !deviceId || syncBusy) {
+      return
+    }
+    const conflict = conflicts.find((item) => item.noteId === selectedId)
+    if (!conflict) {
+      return
+    }
+    setSyncBusy(true)
+    setSyncLabel("Duplicando local…")
+    try {
+      const remoteDraft =
+        getConflictRemoteDraft(conflict) ??
+        (await remote.client.fetchRemoteDraft?.(selectedId))
+      const duplicate = await repo.duplicateNoteAsLocalDraft(
+        selectedId,
+        deviceId,
+        (draft) => continuumBootstrapPrototype(draft).tiptap,
+      )
+      if (remoteDraft) {
+        await repo.resolveConflictUseRemote({
+          noteId: selectedId,
+          remoteVersion: remoteDraft.remoteVersion,
+          structuredDraft: remoteDraft.structuredDraft,
+          tiptapJson:
+            remoteDraft.tiptapJson ??
+            continuumBootstrapPrototype(remoteDraft.structuredDraft).tiptap,
+        })
+      }
+      if (duplicate) {
+        setSelectedId(duplicate.id)
+        setFullNote(duplicate)
+        setSyncLabel(remoteDraft ? "Local duplicado" : "Local duplicado; conflicto pendiente")
+      } else {
+        setSyncLabel("No se pudo duplicar")
+      }
+      await refreshList()
+      await refreshSyncStatus()
+    } finally {
+      setSyncBusy(false)
+    }
+  }
+
   const handleTrash = async () => {
     if (!repo || !selectedId || folder !== "all") {
       return
@@ -1172,7 +1318,7 @@ export default function App() {
               <strong>Conflicto remoto</strong>
               <p>
                 Esta nota cambió online antes de subir tu versión local. Podés
-                conservar tu copia y subirla de nuevo, o dejar el conflicto pendiente.
+                conservar tu copia, usar la versión online o duplicar tu copia local.
               </p>
             </div>
             <div className="continuum-conflict-actions">
@@ -1182,6 +1328,20 @@ export default function App() {
                 onClick={handleKeepLocalConflict}
               >
                 Conservar local
+              </button>
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={handleUseRemoteConflict}
+              >
+                Usar remoto
+              </button>
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={handleDuplicateLocalConflict}
+              >
+                Duplicar local
               </button>
               <button
                 type="button"

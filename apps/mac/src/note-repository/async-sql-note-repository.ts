@@ -6,6 +6,7 @@ import {
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
 import {
+  cloneStructuredDraftForLocalDuplicate,
   INITIAL_MIGRATION_SQL,
   splitSqlStatements,
   dollarizeQuestionMarks,
@@ -468,6 +469,8 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
           remote_version = ?,
           last_synced_at = ?,
           sync_state = 'synced',
+          title = ?,
+          written_at = ?,
           structured_draft_json = ?,
           tiptap_json = ?,
           plain_text = ?,
@@ -478,6 +481,8 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         [
           input.remoteVersion,
           nowIso(),
+          draft.title,
+          draft.writtenAt || note.writtenAt,
           JSON.stringify(draft),
           JSON.stringify(tiptap),
           plain,
@@ -488,6 +493,43 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
       )
       await rebuildIndexes(input.noteId, draft)
       await clearSyncQueue(input.noteId)
+    },
+
+    async resolveConflictUseRemote(input: {
+      noteId: string
+      remoteVersion: number
+      structuredDraft: StructuredNoteDraft
+      tiptapJson?: unknown
+    }): Promise<void> {
+      await this.appendRevision(input.noteId)
+      await this.applyRemoteSynced(input)
+      await db.execute(
+        dollarizeQuestionMarks(
+          `UPDATE sync_conflicts SET resolved = 1 WHERE note_id = ? AND resolved = 0`,
+        ),
+        [input.noteId],
+      )
+    },
+
+    async duplicateNoteAsLocalDraft(
+      noteId: string,
+      deviceId: string,
+      createTiptapJson?: (draft: StructuredNoteDraft) => unknown,
+    ): Promise<NoteFull | null> {
+      const note = await this.getNoteById(noteId)
+      if (!note) {
+        return null
+      }
+      const duplicateDraft = cloneStructuredDraftForLocalDuplicate(note.structuredDraft)
+      return this.saveNote({
+        bumpLocalVersion: true,
+        deviceId,
+        slug: duplicateDraft.id,
+        statusOverride: "draft",
+        structuredDraft: duplicateDraft,
+        syncState: "dirty",
+        tiptapJson: createTiptapJson?.(duplicateDraft) ?? note.tiptapJson,
+      })
     },
 
     async markSyncState(noteId: string, state: NoteSyncState): Promise<void> {

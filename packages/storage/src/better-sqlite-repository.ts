@@ -8,6 +8,7 @@ import {
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
 import type Database from "better-sqlite3"
+import { cloneStructuredDraftForLocalDuplicate } from "./conflict-resolution"
 import { INITIAL_MIGRATION_SQL, splitSqlStatements } from "./migrations"
 import type {
   EmergencyDraftPayload,
@@ -443,6 +444,8 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
           remote_version = ?,
           last_synced_at = ?,
           sync_state = 'synced',
+          title = ?,
+          written_at = ?,
           structured_draft_json = ?,
           tiptap_json = ?,
           plain_text = ?,
@@ -453,6 +456,8 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       ).run(
         input.remoteVersion,
         nowIso(),
+        draft.title,
+        draft.writtenAt || note.writtenAt,
         JSON.stringify(draft),
         JSON.stringify(tiptap),
         plain,
@@ -462,6 +467,40 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
       )
       rebuildIndexes(input.noteId, draft)
       clearSyncQueue(input.noteId)
+    },
+
+    resolveConflictUseRemote(input: {
+      noteId: string
+      remoteVersion: number
+      structuredDraft: StructuredNoteDraft
+      tiptapJson?: unknown
+    }) {
+      this.appendRevision(input.noteId)
+      this.applyRemoteSynced(input)
+      db.prepare(
+        `UPDATE sync_conflicts SET resolved = 1 WHERE note_id = ? AND resolved = 0`,
+      ).run(input.noteId)
+    },
+
+    duplicateNoteAsLocalDraft(
+      noteId: string,
+      deviceId: string,
+      createTiptapJson?: (draft: StructuredNoteDraft) => unknown,
+    ): NoteFull | null {
+      const note = this.getNoteById(noteId)
+      if (!note) {
+        return null
+      }
+      const duplicateDraft = cloneStructuredDraftForLocalDuplicate(note.structuredDraft)
+      return this.saveNote({
+        bumpLocalVersion: true,
+        deviceId,
+        slug: duplicateDraft.id,
+        statusOverride: "draft",
+        structuredDraft: duplicateDraft,
+        syncState: "dirty",
+        tiptapJson: createTiptapJson?.(duplicateDraft) ?? note.tiptapJson,
+      })
     },
 
     markSyncState(noteId: string, state: NoteSyncState) {

@@ -1,5 +1,8 @@
 export type { EmergencyDraftPayload, NoteDbStatus, NoteFull, NoteMeta, NoteSyncState, SaveNoteInput } from "./types"
 export {
+  cloneStructuredDraftForLocalDuplicate,
+} from "./conflict-resolution"
+export {
   INITIAL_MIGRATION_SQL,
   splitSqlStatements,
 } from "./migrations"
