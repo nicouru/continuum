@@ -21,6 +21,10 @@ export type SyncEngineDeps = {
     noteId: string,
     remoteVersion: number,
   ) => Promise<void>
+  rebaseLocalRemoteVersion?: (
+    noteId: string,
+    remoteVersion: number,
+  ) => Promise<void>
   markState: (noteId: string, state: string) => Promise<void>
   onConflict: (noteId: string, error: unknown) => Promise<void>
   onError?: (noteId: string, error: unknown) => Promise<void> | void
@@ -92,7 +96,7 @@ export class DraftSyncEngine {
       return { status: "offline" }
     }
 
-    const note = await this.deps.loadNote(noteId)
+    let note = await this.deps.loadNote(noteId)
     if (!note || note.syncState === "conflict") {
       return { status: "skipped" }
     }
@@ -116,15 +120,20 @@ export class DraftSyncEngine {
           syncState: note.syncState as NoteSyncState,
         })
       ) {
-        const remoteDraft = await this.fetchRemoteDraftForConflict(noteId)
-        const conflict = {
-          code: "remote_ahead",
-          ...(remoteDraft ? { remoteDraft } : {}),
-          serverRemoteVersion,
-          storedRemoteVersion: note.remoteVersion,
+        if (this.canRecoverLostFirstAck(note, serverRemoteVersion)) {
+          await this.deps.rebaseLocalRemoteVersion?.(noteId, serverRemoteVersion)
+          note = { ...note, remoteVersion: serverRemoteVersion, syncState: "dirty" }
+        } else {
+          const remoteDraft = await this.fetchRemoteDraftForConflict(noteId)
+          const conflict = {
+            code: "remote_ahead",
+            ...(remoteDraft ? { remoteDraft } : {}),
+            serverRemoteVersion,
+            storedRemoteVersion: note.remoteVersion,
+          }
+          await this.deps.onConflict(noteId, conflict)
+          return { error: conflict, status: "conflict" }
         }
-        await this.deps.onConflict(noteId, conflict)
-        return { error: conflict, status: "conflict" }
       }
 
       await this.deps.markState(noteId, "syncing")
@@ -161,6 +170,20 @@ export class DraftSyncEngine {
     } catch {
       return null
     }
+  }
+
+  private canRecoverLostFirstAck(
+    note: SyncAdapterNote,
+    serverRemoteVersion: number,
+  ): boolean {
+    return Boolean(
+      this.deps.rebaseLocalRemoteVersion &&
+        note.remoteVersion === 0 &&
+        serverRemoteVersion === 1 &&
+        (note.syncState === "dirty" ||
+          note.syncState === "syncing" ||
+          note.syncState === "error"),
+    )
   }
 }
 

@@ -670,6 +670,9 @@ export default function App() {
             setFullNote(next)
           }
         },
+        rebaseLocalRemoteVersion: async (noteId, remoteVersion) => {
+          await repo.resolveConflictKeepLocal(noteId, remoteVersion)
+        },
         markState: async (noteId, state) => {
           await repo.markSyncState(noteId, state as never)
           await refreshSyncStatus()

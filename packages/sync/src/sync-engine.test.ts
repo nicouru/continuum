@@ -142,4 +142,38 @@ describe("DraftSyncEngine", () => {
       },
     ])
   })
+
+  it("rebases a lost first-sync acknowledgement before retrying", async () => {
+    const rebases: Array<{ noteId: string; remoteVersion: number }> = []
+    const pushes: number[] = []
+    const conflicts: unknown[] = []
+    const client: DraftRemoteClient = {
+      fetchRemoteMeta: async () => ({ remoteVersion: 1 }),
+      pushDraft: async (payload) => {
+        pushes.push(payload.remoteVersion)
+        return { remoteVersion: 2 }
+      },
+    }
+    const engine = new DraftSyncEngine({
+      applyRemoteSuccess: async () => undefined,
+      client,
+      isOffline: () => false,
+      loadNote: async () => note(),
+      markState: async () => undefined,
+      onConflict: async (_noteId, error) => {
+        conflicts.push(error)
+      },
+      pollDirtyIds: async () => ["note-1"],
+      rebaseLocalRemoteVersion: async (noteId, remoteVersion) => {
+        rebases.push({ noteId, remoteVersion })
+      },
+    })
+
+    const result = await engine.syncNote("note-1")
+
+    expect(result).toEqual({ remoteVersion: 2, status: "success" })
+    expect(rebases).toEqual([{ noteId: "note-1", remoteVersion: 1 }])
+    expect(pushes).toEqual([1])
+    expect(conflicts).toHaveLength(0)
+  })
 })
