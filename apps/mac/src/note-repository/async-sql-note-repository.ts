@@ -2,6 +2,7 @@ import type { StructuredNoteDraft } from "@continuum/core"
 import {
   excerptFromPlainText,
   extractStructuredDraftPlainText,
+  extractStructuredDraftVisiblePlainText,
   formatDateInput,
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
@@ -245,7 +246,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
     async saveNote(input: SaveNoteInput): Promise<NoteFull> {
       const draft = normalizeStructuredNoteDraft(input.structuredDraft)
       const plain = extractStructuredDraftPlainText(draft)
-      const excerpt = excerptFromPlainText(plain)
+      const excerpt = excerptFromPlainText(extractStructuredDraftVisiblePlainText(draft))
       const existing = await fetchFull(draft.id)
 
       const createdAt = existing ? String(existing.createdAt) : nowIso()
@@ -408,7 +409,7 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         : note.structuredDraft
       const tiptap = input.tiptapJson ?? note.tiptapJson
       const plain = extractStructuredDraftPlainText(draft)
-      const excerpt = excerptFromPlainText(plain)
+      const excerpt = excerptFromPlainText(extractStructuredDraftVisiblePlainText(draft))
       await db.execute(
         dollarizeQuestionMarks(`
         UPDATE notes SET

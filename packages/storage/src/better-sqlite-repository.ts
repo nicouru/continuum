@@ -4,6 +4,7 @@ import type {
 import {
   excerptFromPlainText,
   extractStructuredDraftPlainText,
+  extractStructuredDraftVisiblePlainText,
   formatDateInput,
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
@@ -241,7 +242,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
     saveNote(input: SaveNoteInput): NoteFull {
       const draft = normalizeStructuredNoteDraft(input.structuredDraft)
       const plain = extractStructuredDraftPlainText(draft)
-      const excerpt = excerptFromPlainText(plain)
+      const excerpt = excerptFromPlainText(extractStructuredDraftVisiblePlainText(draft))
       const existing = selectFull.get(draft.id) as Record<string, unknown> | undefined
 
       const createdAt = existing ? String(existing.createdAt) : nowIso()
@@ -385,7 +386,7 @@ export function createBetterSqlNoteRepository(db: Database.Database) {
         : note.structuredDraft
       const tiptap = input.tiptapJson ?? note.tiptapJson
       const plain = extractStructuredDraftPlainText(draft)
-      const excerpt = excerptFromPlainText(plain)
+      const excerpt = excerptFromPlainText(extractStructuredDraftVisiblePlainText(draft))
       db.prepare(
         `
         UPDATE notes SET

@@ -3,7 +3,7 @@ import type { StructuredNoteDraft } from "@continuum/core"
 import {
   createNewStructuredNoteDraft,
   excerptFromPlainText,
-  extractStructuredDraftPlainText,
+  extractStructuredDraftVisiblePlainText,
   normalizeStructuredNoteDraft,
 } from "@continuum/core"
 import { emergencyIsNewer } from "@continuum/storage"
@@ -262,7 +262,9 @@ function textDocumentFromTextarea(value: string, idPrefix: string) {
 
 function getConflictPreview(draft: StructuredNoteDraft, version: number) {
   return {
-    excerpt: excerptFromPlainText(extractStructuredDraftPlainText(draft)) || "Sin texto",
+    excerpt:
+      excerptFromPlainText(extractStructuredDraftVisiblePlainText(draft)) ||
+      "Sin texto",
     title: draft.title.trim() || "Sin titulo",
     version,
     writtenAt: draft.writtenAt,

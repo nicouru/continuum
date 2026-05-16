@@ -1,7 +1,29 @@
 import type { StructuredNoteDraft } from "./structured-note-draft/types"
 
-/** Concatenated plain text for SQLite indexing / excerpt derivation (FTS prep). */
+/**
+ * Concatenated visible note text for UI excerpts.
+ *
+ * References are intentionally excluded here: new Continuum notes are seeded
+ * with the online reference library, but an empty note should still display as
+ * an empty draft in the sidebar.
+ */
+export function extractStructuredDraftVisiblePlainText(
+  draft: StructuredNoteDraft,
+): string {
+  return collectVisibleTextParts(draft).join("\n").trim()
+}
+
+/**
+ * Concatenated plain text for SQLite indexing / FTS prep.
+ *
+ * This intentionally matches visible note text. The full `references` array is
+ * a library carried by the draft, not necessarily content used in the note.
+ */
 export function extractStructuredDraftPlainText(draft: StructuredNoteDraft): string {
+  return extractStructuredDraftVisiblePlainText(draft)
+}
+
+function collectVisibleTextParts(draft: StructuredNoteDraft): string[] {
   const parts: string[] = []
 
   const title = draft.title.trim()
@@ -35,22 +57,7 @@ export function extractStructuredDraftPlainText(draft: StructuredNoteDraft): str
     }
   }
 
-  for (const reference of draft.references) {
-    const blob = [
-      reference.author,
-      reference.work,
-      reference.body,
-      reference.edition,
-      reference.translator,
-    ]
-      .filter(Boolean)
-      .join(" ")
-    if (blob.trim()) {
-      parts.push(blob.trim())
-    }
-  }
-
-  return parts.join("\n").trim()
+  return parts
 }
 
 export function excerptFromPlainText(plain: string, maxLength = 200): string {
