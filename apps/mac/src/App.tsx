@@ -868,9 +868,11 @@ export default function App() {
         syncState: offline ? "offline" : "dirty",
         tiptapJson: prototype.tiptap,
       })
+      const nextNotes = await repo.listNotesMeta({ folder: "all" })
       setFolder("all")
+      setNotes(nextNotes)
       setSelectedId(saved.id)
-      await refreshList()
+      setFullNote(saved)
       await refreshSyncStatus()
     } finally {
       setCreatingNote(false)
