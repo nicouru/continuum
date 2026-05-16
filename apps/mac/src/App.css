@@ -41,7 +41,7 @@
   --continuum-editor-reference-bg: rgba(58, 123, 213, 0.055);
   --continuum-editor-reference-missing: #b3261e;
   --continuum-editor-superscript: rgba(0, 0, 0, 0.8577);
-  --continuum-editor-ink-bleed: 0 0 0.1px var(--continuum-editor-text);
+  --continuum-editor-ink-bleed: none;
   --continuum-hairline: rgba(29, 29, 27, 0.14);
   background: #fffdfa;
   color: #1d1d1b;
