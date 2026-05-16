@@ -26,12 +26,18 @@ Diario API on Fly
   canonical SQLite volume for ocurrencias.net
         |
         v
-public reader, web admin, future publishing flows
+public reader, web admin, explicit publishing flows
 ```
 
 ## Save Policy
 
 Save and autosave always mean draft. They must not publish.
+
+Publishing is a separate explicit lifecycle action. Continuum first flushes the
+current local draft to Diario through the guarded draft endpoint, then sends a
+Diario admin command to publish or unpublish the same note. This keeps the
+Reader invariant intact: only notes whose canonical Diario status is
+`published` become public.
 
 Recommended policy:
 
@@ -43,6 +49,8 @@ Recommended policy:
   local changes online immediately when network is available.
 - Background online sync while writing: push dirty notes every 10-15 seconds,
   coalescing edits into one request.
+- Publish/unpublish: only after the draft sync path succeeds; never as part of
+  autosave.
 - Only one in-flight sync per note.
 - If edits arrive while a request is in flight, queue one more sync after it
   finishes.

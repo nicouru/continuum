@@ -5,8 +5,8 @@ Continuum is the Mac-first authoring app for Diario de Ocurrencias.
 It is designed to replace Ulysses as the primary writing interface while
 preserving the structured editing model already used by the Diario web editor:
 paragraphs, aphorisms, citations/superscripts, references, reference inserts,
-inline math, manual indents, written dates, stable IDs, drafts and future
-publishing.
+inline math, manual indents, written dates, stable IDs, drafts and explicit
+publishing through Diario.
 
 ## Status
 
@@ -29,11 +29,11 @@ Implemented:
 - Remote revision checks for Diario draft pushes.
 - Conflict surface with keep-local, use-remote, and duplicate-local resolution.
 - Split Vite vendor chunks for React, TipTap/ProseMirror, and KaTeX.
+- Explicit publish/unpublish action through Diario's admin lifecycle command.
 - Structured note validation/conversion tests.
 
 Mocked or deferred:
 
-- Publishing/update/unpublish commands.
 - Search UI and SQLite FTS5 migrations.
 - Full visual parity audit against Diario edge cases.
 - Production app icon/branding pass.
@@ -121,9 +121,9 @@ pnpm build
 cd apps/mac/src-tauri && cargo check
 ```
 
-Current known build note: Vite reports a large JavaScript chunk around 900 kB
-because TipTap/ProseMirror/KaTeX are bundled together. That is not currently a
-functional failure; code splitting is a follow-up.
+Current build note: Vite vendor chunk splitting is enabled for React,
+TipTap/ProseMirror, and KaTeX, so the old single large editor chunk warning is
+resolved for the production build.
 
 ## Storage
 
@@ -150,7 +150,9 @@ Architecture note: see
 model, cross-device sync expectations, save timing, conflict policy, and Fly
 operating assumptions.
 
-Save and autosave always mean draft. They never publish.
+Save and autosave always mean draft. They never publish. Publishing and
+unpublishing are explicit lifecycle actions and are sent through Diario's admin
+command API only after the current draft has been synced.
 
 Continuum now uses an in-app Diario login. The default target is
 `https://ocurrencias.net`; a dev base URL can still be provided through
@@ -161,6 +163,14 @@ The current Diario endpoint is:
 ```txt
 POST /api/admin/v1/tiptap-draft
 body: { "draft": StructuredNoteDraft, "baseRemoteRevision": number }
+```
+
+Publishing uses Diario's lifecycle command endpoint:
+
+```txt
+POST /api/admin/v1/commands
+body: { "command": { "noteId": "<id>", "type": "note:publish" } }
+body: { "command": { "noteId": "<id>", "type": "note:unpublish" } }
 ```
 
 The app sends that request through the Tauri HTTP plugin with the stored Diario
