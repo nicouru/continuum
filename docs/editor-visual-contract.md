@@ -2,15 +2,15 @@
 
 Continuum uses TipTap/ProseMirror as the canonical editor model across the Mac app and the Diario web editor. A new empty note must remain a single editable structured paragraph. Do not add invisible characters, non-breaking spaces, manual `<br>` nodes, extra paragraphs, or schema-level placeholder nodes to correct caret placement.
 
-## Empty editor caret
+## Empty editor caret and empty paragraphs
 
-The Mac editor runs inside Tauri/WebKit. WebKit can place the caret for an empty contenteditable paragraph slightly above the baseline used once real Sabon text is present. The intended behavior is that a new empty note shows the caret where the first typed line will appear.
+The Mac editor runs inside Tauri/WebKit. A new empty note must focus inside the first structured paragraph, not after it. If the selection lands after the empty textblock, the first typed character can create a second paragraph and leave a real empty paragraph above the text. That is document structure, not a visual offset.
 
-The correction lives only in layout CSS:
+The correction belongs in editor selection and document normalization:
 
-- Scope it to `.continuum-editor-surface .tiptap p.is-editor-empty:first-child`.
-- Use only box metrics such as `min-height`, `line-height`, and `padding-top`.
-- Keep the offset in `--continuum-empty-caret-offset` so future typography changes have one place to recalibrate.
-- Never use `content`, `&nbsp;`, hidden text, or document mutations for this.
+- When loading a fully empty note, place focus at position `1`, inside the only editable paragraph.
+- Treat leading/trailing empty non-aphorism paragraphs as editor-only structure when there is real content elsewhere.
+- Preserve one empty paragraph only when the whole note is empty.
+- Never solve this with `content`, `&nbsp;`, hidden text, manual `<br>` nodes, or extra stored paragraphs.
 
-This rule affects only the visual state of a fully empty editor. It must not affect copy/paste, `StructuredNoteDraft`, TipTap JSON, sync, export, aphorisms, references, or published output.
+This rule must not affect copy/paste, `StructuredNoteDraft`, TipTap JSON, sync, export, aphorisms, references, or published output except to remove editor-only empty paragraphs that were created by a bad caret boundary.

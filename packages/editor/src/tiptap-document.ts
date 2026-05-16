@@ -39,6 +39,7 @@ export function createTipTapPrototypeDocumentFromStructuredDraft(
   draft: StructuredNoteDraft,
 ): TipTapPrototypeDocument {
   const citationNumbers = getDraftCitationNumbers(draft)
+  const blocks = trimEditorOnlyEmptyParagraphBlocks(draft.blocks)
 
   return {
     debug: {
@@ -46,7 +47,7 @@ export function createTipTapPrototypeDocumentFromStructuredDraft(
       sourceNoteId: draft.id,
     },
     tiptap: {
-      content: draft.blocks.map((block) =>
+      content: blocks.map((block) =>
         convertBlockToTipTapNode(block, draft, citationNumbers),
       ),
       type: "doc",
@@ -60,7 +61,7 @@ export function createStructuredDraftFromTipTapPrototypeDocument({
 }: TipTapToStructuredDraftInput): StructuredNoteDraft {
   const citationsById = new Map<string, StructuredNoteDraftCitation>()
   const usedSegmentIds = new Set<string>()
-  const blocks = trimTrailingEmptyParagraphBlocks(
+  const blocks = trimEditorOnlyEmptyParagraphBlocks(
     dropEmptyAphorismBlocks(
       (tiptap.content ?? []).map((node, index) =>
         convertTipTapNodeToStructuredBlock({
@@ -625,6 +626,20 @@ function trimTrailingEmptyParagraphBlocks(
   return blocks.slice(0, endIndex)
 }
 
+function trimEditorOnlyEmptyParagraphBlocks(blocks: StructuredNoteDraftBlock[]) {
+  const withoutTrailingBlocks = trimTrailingEmptyParagraphBlocks(blocks)
+  let startIndex = 0
+
+  while (
+    startIndex < withoutTrailingBlocks.length - 1 &&
+    isEditorOnlyEmptyParagraphBlock(withoutTrailingBlocks[startIndex])
+  ) {
+    startIndex += 1
+  }
+
+  return withoutTrailingBlocks.slice(startIndex)
+}
+
 function dropEmptyAphorismBlocks(blocks: StructuredNoteDraftBlock[]) {
   const nextBlocks = blocks.filter(
     (block) =>
@@ -648,6 +663,10 @@ function dropEmptyAphorismBlocks(blocks: StructuredNoteDraftBlock[]) {
 }
 
 function isEmptyTrailingParagraphBlock(block: StructuredNoteDraftBlock) {
+  return isEditorOnlyEmptyParagraphBlock(block)
+}
+
+function isEditorOnlyEmptyParagraphBlock(block: StructuredNoteDraftBlock) {
   if (block.type !== "paragraph" || block.aphorismId) {
     return false
   }

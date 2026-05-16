@@ -49,6 +49,62 @@ describe("TipTap structured draft roundtrip", () => {
     expect(restored.blocks[0]?.id).toBe("draft-block-1")
   })
 
+  it("treats leading empty paragraphs before real text as editor-only structure", () => {
+    const seed = normalizeStructuredNoteDraft(
+      createEmptyStructuredNoteDraft("2026-05-15T00:00:00.000Z"),
+    )
+    const tiptapWithLeadingEmptyParagraph: TipTapJsonNode = {
+      content: [
+        {
+          attrs: { blockId: "draft-block-1", literaryBreakBefore: false },
+          type: "structuredParagraph",
+        },
+        {
+          content: [{ text: "Primera linea real", type: "text" }],
+          type: "paragraph",
+        },
+      ],
+      type: "doc",
+    }
+
+    const restored = createStructuredDraftFromTipTapPrototypeDocument({
+      sourceDraft: seed,
+      tiptap: tiptapWithLeadingEmptyParagraph,
+    })
+
+    expect(restored.blocks).toHaveLength(1)
+    expect(restored.blocks[0]?.segments).toEqual([
+      {
+        id: "tiptap-block-2-segment-1",
+        text: "Primera linea real",
+        type: "text",
+      },
+    ])
+  })
+
+  it("does not render stored leading empty paragraphs before real text", () => {
+    const seed = normalizeStructuredNoteDraft({
+      ...createEmptyStructuredNoteDraft("2026-05-15T00:00:00.000Z"),
+      blocks: [
+        {
+          id: "empty-leading-block",
+          segments: [{ id: "empty-leading-segment", text: "", type: "text" }],
+          type: "paragraph",
+        },
+        {
+          id: "real-block",
+          segments: [{ id: "real-segment", text: "Texto real", type: "text" }],
+          type: "paragraph",
+        },
+      ],
+    })
+
+    const prototype = createTipTapPrototypeDocumentFromStructuredDraft(seed)
+
+    expect(prototype.tiptap.content).toHaveLength(1)
+    expect(prototype.tiptap.content?.[0]?.attrs?.blockId).toBe("real-block")
+  })
+
   it("preserves structural ids across conversions", () => {
     const seed = normalizeStructuredNoteDraft({
       aphorisms: [],

@@ -142,6 +142,13 @@ export function ContinuumEditor({
     }
     loadedNoteIdRef.current = noteId
     editor.commands.setContent(initialPrototype.tiptap, { emitUpdate: false })
+    if (isSingleEmptyTextBlockDocument(initialPrototype.tiptap)) {
+      queueMicrotask(() => {
+        if (!editor.isDestroyed) {
+          editor.commands.focus(1)
+        }
+      })
+    }
     queueMicrotask(() => normalizeEditorIdentity(editor))
     queueMicrotask(() => emitCurrentPayload(editor))
   }, [noteId, editor, initialPrototype])
@@ -183,4 +190,20 @@ export function ContinuumEditor({
 
 export function continuumBootstrapPrototype(draft: StructuredNoteDraft): TipTapPrototypeDocument {
   return createTipTapPrototypeDocumentFromStructuredDraft(draft)
+}
+
+function isSingleEmptyTextBlockDocument(tiptap: TipTapJsonNode) {
+  const content = tiptap.content ?? []
+
+  if (content.length !== 1) {
+    return false
+  }
+
+  const [node] = content
+
+  return (
+    Boolean(node) &&
+    (node.type === "paragraph" || node.type === "structuredParagraph") &&
+    !(node.content ?? []).some((child) => child.type !== "text" || child.text)
+  )
 }
