@@ -176,6 +176,33 @@ export function ContinuumEditor({
     emitCurrentPayload(editor)
   }, [editor, title, writtenAt])
 
+  const handleSurfaceMouseDown: MouseEventHandler<HTMLDivElement> = (event) => {
+    if (!editor || event.button !== 0) {
+      return
+    }
+
+    const target = event.target as HTMLElement
+    if (target.closest("input, button, a, select, textarea")) {
+      return
+    }
+
+    if (target.closest(".tiptap")) {
+      return
+    }
+
+    const coords = editor.view.posAtCoords({
+      left: event.clientX,
+      top: event.clientY,
+    })
+
+    if (coords) {
+      editor.chain().focus().setTextSelection(coords.pos).run()
+      return
+    }
+
+    editor.commands.focus("end")
+  }
+
   return (
     <div className="continuum-editor-root">
       {showMetadataControls ? (
@@ -203,6 +230,7 @@ export function ContinuumEditor({
         className="continuum-editor-surface"
         onContextMenu={onEditorContextMenu}
         onFocusCapture={onEditorFocus}
+        onMouseDown={handleSurfaceMouseDown}
       >
         <EditorContent editor={editor} />
       </div>

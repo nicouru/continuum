@@ -322,10 +322,9 @@ function getConflictPreview(draft: StructuredNoteDraft, version: number) {
 function NewNoteIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-      <path d="M5 5h10.5" />
-      <path d="M5 5v14h14V8.5" />
-      <path d="M9 15l1.1-3.7 6.6-6.6 2.6 2.6-6.6 6.6z" />
-      <path d="M15.5 5.9l2.6 2.6" />
+      <rect height="11.5" rx="1.6" width="11.5" x="4.75" y="4.75" />
+      <path d="M9.2 15.1l1-3.2 5.7-5.7 2.2 2.2-5.7 5.7z" />
+      <path d="M14.1 5.4l2.2 2.2" />
     </svg>
   )
 }
@@ -344,23 +343,93 @@ function TrashIcon() {
 
 function BrandMark() {
   return (
-    <span className="continuum-brand-mark">
+    <span className="continuum-brand-mark" aria-hidden="true">
       <img
         className="continuum-brand-mark-dark"
         src={brandLogoUrl}
         alt=""
-        width="22"
-        height="22"
+        width="44"
+        height="44"
       />
       <img
         className="continuum-brand-mark-light"
         src={brandLogoBlackUrl}
         alt=""
-        width="22"
-        height="22"
+        width="44"
+        height="44"
       />
-      <span>Continuum</span>
     </span>
+  )
+}
+
+function NoteSyncDot({ syncState }: { syncState: NoteMeta["syncState"] }) {
+  const label = syncStateLabel(syncState)
+
+  return (
+    <span
+      className={`continuum-list-sync-dot continuum-list-sync-dot--${syncState}`}
+      aria-label={label}
+      title={label}
+    />
+  )
+}
+
+function SidebarHeader({
+  creatingNote,
+  onCreateNote,
+}: {
+  creatingNote: boolean
+  onCreateNote: () => void
+}) {
+  return (
+    <header className="continuum-sidebar-header">
+      <BrandMark />
+      <button
+        type="button"
+        className="continuum-icon-button continuum-new-note-button"
+        disabled={creatingNote}
+        onClick={onCreateNote}
+        aria-label="Nueva nota"
+        title="Nueva nota"
+      >
+        <NewNoteIcon />
+      </button>
+    </header>
+  )
+}
+
+function SidebarFooter({
+  appearanceMode,
+  onSetAppearanceMode,
+  onToggleSidebar,
+}: {
+  appearanceMode: "dark" | "light"
+  onSetAppearanceMode: (value: "dark" | "light") => void
+  onToggleSidebar: () => void
+}) {
+  return (
+    <footer className="continuum-sidebar-footer">
+      <button
+        type="button"
+        className="continuum-icon-button"
+        onClick={() =>
+          onSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")
+        }
+        aria-label={appearanceMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+        title={appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
+      >
+        {appearanceMode === "dark" ? "☼" : "☾"}
+      </button>
+      <button
+        type="button"
+        className="continuum-icon-button"
+        onClick={onToggleSidebar}
+        aria-label="Ocultar panel"
+        title="Ocultar panel"
+      >
+        ⟨
+      </button>
+    </footer>
   )
 }
 
@@ -1596,41 +1665,7 @@ export default function App() {
         {sidebarVisible ? (
           <>
           <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-            <header className="continuum-brand">
-              <BrandMark />
-              <div className="continuum-brand-actions">
-                <button
-                  type="button"
-                  className="continuum-icon-button"
-                  onClick={() =>
-                    handleSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")
-                  }
-                  aria-label={appearanceMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-                  title={appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
-                >
-                  {appearanceMode === "dark" ? "☼" : "☾"}
-                </button>
-                <button
-                  type="button"
-                  className="continuum-icon-button continuum-new-note-button"
-                  disabled={creatingNote}
-                  onClick={handleCreateNote}
-                  aria-label="Nueva nota"
-                  title="Nueva nota"
-                >
-                  <NewNoteIcon />
-                </button>
-                <button
-                  type="button"
-                  className="continuum-icon-button"
-                  onClick={handleToggleSidebar}
-                  aria-label="Ocultar panel"
-                  title="Ocultar panel"
-                >
-                  ⟨
-                </button>
-              </div>
-            </header>
+            <SidebarHeader creatingNote={creatingNote} onCreateNote={handleCreateNote} />
             <nav className="continuum-folders">
               <button
                 type="button"
@@ -1650,6 +1685,11 @@ export default function App() {
               </button>
             </nav>
             <div className="continuum-list" />
+            <SidebarFooter
+              appearanceMode={appearanceMode}
+              onSetAppearanceMode={handleSetAppearanceMode}
+              onToggleSidebar={handleToggleSidebar}
+            />
           </aside>
           <div
             className="continuum-sidebar-resizer"
@@ -1700,47 +1740,14 @@ export default function App() {
       )
     : null
   const retryTime = formatRetryTime(syncStatus?.nextRetryAt ?? null)
+  const isMultiSelect = selectedVisibleNoteIds.length > 1
 
   return (
     <div className="continuum-shell" data-theme={appearanceMode}>
       {sidebarVisible ? (
         <>
         <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-          <header className="continuum-brand">
-            <BrandMark />
-            <div className="continuum-brand-actions">
-              <button
-                type="button"
-                className="continuum-icon-button"
-                onClick={() =>
-                  handleSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")
-                }
-                aria-label={appearanceMode === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-                title={appearanceMode === "dark" ? "Modo claro" : "Modo oscuro"}
-              >
-                {appearanceMode === "dark" ? "☼" : "☾"}
-              </button>
-              <button
-                type="button"
-                className="continuum-icon-button continuum-new-note-button"
-                disabled={creatingNote}
-                onClick={handleCreateNote}
-                aria-label="Nueva nota"
-                title="Nueva nota"
-              >
-                <NewNoteIcon />
-              </button>
-              <button
-                type="button"
-                className="continuum-icon-button"
-                onClick={handleToggleSidebar}
-                aria-label="Ocultar panel"
-                title="Ocultar panel"
-              >
-                ⟨
-              </button>
-            </div>
-          </header>
+          <SidebarHeader creatingNote={creatingNote} onCreateNote={handleCreateNote} />
           <nav className="continuum-folders">
             <button
               type="button"
@@ -1773,6 +1780,8 @@ export default function App() {
               const previewText = getNotePreviewText(note) || "Nota vacía"
               const isActive = note.id === selectedId
               const hasListFocus = sidebarSelectionFocus && isActive
+              const isMultiSelected =
+                isMultiSelect && selectedNoteIdSet.has(note.id) && !isActive
 
               return (
                 <button
@@ -1782,12 +1791,12 @@ export default function App() {
                     "continuum-list-row",
                     isActive ? "active" : "",
                     hasListFocus ? "list-focused" : "",
-                    selectedNoteIdSet.has(note.id) ? "selected" : "",
+                    isMultiSelected ? "multi-selected" : "",
                     newlyCreatedNoteId === note.id ? "newly-created" : "",
                   ]
                     .filter(Boolean)
                     .join(" ")}
-                  aria-pressed={selectedNoteIdSet.has(note.id)}
+                  aria-pressed={isMultiSelect && selectedNoteIdSet.has(note.id)}
                   onClick={(event) => handleSelectNoteFromList(event, note.id)}
                   onContextMenu={(event) => handleNoteContextMenu(event, note.id)}
                 >
@@ -1798,15 +1807,16 @@ export default function App() {
                     <div className="continuum-list-title">{titleText}</div>
                   ) : null}
                   <div className="continuum-list-preview">{previewText}</div>
-                  <div
-                    className={`continuum-list-sync continuum-list-sync--${note.syncState}`}
-                  >
-                    {syncStateLabel(note.syncState)}
-                  </div>
+                  <NoteSyncDot syncState={note.syncState} />
                 </button>
               )
             })}
           </div>
+          <SidebarFooter
+            appearanceMode={appearanceMode}
+            onSetAppearanceMode={handleSetAppearanceMode}
+            onToggleSidebar={handleToggleSidebar}
+          />
         </aside>
         <div
           className="continuum-sidebar-resizer"

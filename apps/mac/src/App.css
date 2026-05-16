@@ -129,29 +129,36 @@
   color: #1d1d1b;
 }
 
-.continuum-brand {
+.continuum-sidebar-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 14px 12px 12px;
+  border-bottom: 1px solid var(--continuum-hairline);
+}
+
+.continuum-sidebar-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--continuum-hairline);
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: auto;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--continuum-hairline);
 }
 
 .continuum-brand-mark {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  grid-column: 2;
   min-width: 0;
-  gap: 8px;
 }
 
 .continuum-brand-mark img {
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 44px;
+  height: 44px;
   object-fit: contain;
 }
 
@@ -167,10 +174,9 @@
   display: block;
 }
 
-.continuum-brand-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.continuum-sidebar-header .continuum-new-note-button {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .continuum-icon-button {
@@ -191,22 +197,35 @@
   color: rgb(0 0 0 / 0.58);
 }
 
-.continuum-brand .continuum-new-note-button {
-  width: 32px;
-  height: 32px;
+.continuum-new-note-button {
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border-color: #2d2d2d;
-  background: #1a1a1a;
+  border-color: rgb(255 255 255 / 0.14);
+  background: rgb(255 255 255 / 0.03);
 }
 
-.continuum-shell[data-theme="light"] .continuum-brand .continuum-new-note-button {
-  border-color: rgba(29, 29, 27, 0.16);
-  background: rgba(29, 29, 27, 0.045);
+.continuum-shell[data-theme="light"] .continuum-new-note-button {
+  border-color: rgba(29, 29, 27, 0.18);
+  background: rgba(29, 29, 27, 0.03);
 }
 
-.continuum-brand .continuum-new-note-button:hover:not(:disabled) {
-  border-color: #464646;
-  background: #242424;
+.continuum-new-note-button:hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 0.24);
+  background: rgb(255 255 255 / 0.06);
+  color: #f2f2f2;
+}
+
+.continuum-shell[data-theme="light"] .continuum-new-note-button:hover:not(:disabled) {
+  border-color: rgba(29, 29, 27, 0.24);
+  background: rgba(29, 29, 27, 0.06);
+  color: rgb(0 0 0 / 0.86);
+}
+
+.continuum-new-note-button svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.55;
 }
 
 .continuum-icon-button:hover:not(:disabled) {
@@ -229,12 +248,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
-}
-
-.continuum-brand .continuum-icon-button:first-child svg {
-  width: 19px;
-  height: 19px;
-  stroke-width: 2;
 }
 
 .continuum-folders {
@@ -318,13 +331,14 @@
 }
 
 .continuum-list-row {
+  position: relative;
   text-align: left;
   border-radius: 0;
   border: 1px solid transparent;
   border-bottom-color: var(--continuum-hairline);
   background: transparent;
   color: inherit;
-  padding: 10px 10px 11px;
+  padding: 10px 18px 11px 10px;
   cursor: pointer;
   transition:
     border-color 140ms ease,
@@ -344,40 +358,44 @@
 
 .continuum-list-row.active {
   border-radius: 6px;
-  border-color: #555555;
-  background: #202020;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.025);
+  border-color: rgb(112 165 224 / 0.42);
+  background: rgb(28 42 58 / 0.72);
+  box-shadow: inset 3px 0 0 rgb(112 165 224 / 0.82);
 }
 
 .continuum-shell[data-theme="light"] .continuum-list-row.active {
-  border-color: rgba(29, 29, 27, 0.2);
-  background: rgba(29, 29, 27, 0.06);
+  border-color: rgb(55 121 191 / 0.28);
+  background: rgb(214 230 250 / 0.72);
+  box-shadow: inset 3px 0 0 rgb(55 121 191 / 0.62);
 }
 
 .continuum-list-row.active.list-focused {
   border-color: rgb(112 165 224 / 0.72);
-  background: rgb(36 69 108 / 0.72);
+  background: rgb(36 69 108 / 0.82);
   box-shadow:
-    inset 0 0 0 1px rgb(167 205 255 / 0.16),
+    inset 3px 0 0 rgb(167 205 255 / 0.95),
     0 0 0 1px rgb(112 165 224 / 0.14);
 }
 
 .continuum-shell[data-theme="light"] .continuum-list-row.active.list-focused {
   border-color: rgb(55 121 191 / 0.5);
-  background: rgb(210 230 252 / 0.82);
+  background: rgb(210 230 252 / 0.92);
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.42),
+    inset 3px 0 0 rgb(55 121 191 / 0.82),
     0 0 0 1px rgb(55 121 191 / 0.08);
 }
 
-.continuum-list-row.selected:not(.active) {
-  border-color: #3f3f3f;
-  background: #171717;
+.continuum-list-row.multi-selected {
+  border-radius: 6px;
+  border-color: #404040;
+  background: #151515;
+  box-shadow: inset 3px 0 0 #7a7a7a;
 }
 
-.continuum-shell[data-theme="light"] .continuum-list-row.selected:not(.active) {
-  border-color: rgba(29, 29, 27, 0.16);
-  background: rgba(29, 29, 27, 0.04);
+.continuum-shell[data-theme="light"] .continuum-list-row.multi-selected {
+  border-color: rgba(29, 29, 27, 0.14);
+  background: rgba(29, 29, 27, 0.035);
+  box-shadow: inset 3px 0 0 rgba(29, 29, 27, 0.28);
 }
 
 .continuum-list-row.newly-created {
@@ -434,16 +452,16 @@
   color: rgb(0 0 0 / 0.78);
 }
 
-.continuum-list-sync {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  margin-top: 6px;
-  padding: 2px 6px;
-  border-radius: 999px;
-  border: 1px solid #363636;
-  color: #a6a6a6;
-  font-size: 10px;
+.continuum-list-sync-dot {
+  position: absolute;
+  right: 10px;
+  bottom: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6d6d6d;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+  pointer-events: none;
 }
 
 .continuum-sidebar-resizer {
@@ -474,21 +492,23 @@
   user-select: none;
 }
 
-.continuum-list-sync--conflict,
-.continuum-list-sync--error {
-  border-color: #704247;
-  color: #ffb4b4;
+.continuum-list-sync-dot--synced {
+  background: #5f9f74;
 }
 
-.continuum-list-sync--dirty,
-.continuum-list-sync--offline {
-  border-color: #6c5d36;
-  color: #e9d49a;
+.continuum-list-sync-dot--dirty,
+.continuum-list-sync-dot--syncing {
+  background: #c9a84a;
 }
 
-.continuum-list-sync--synced {
-  border-color: #365a48;
-  color: #98d8b2;
+.continuum-list-sync-dot--offline,
+.continuum-list-sync-dot--local_only {
+  background: #9a8b62;
+}
+
+.continuum-list-sync-dot--conflict,
+.continuum-list-sync-dot--error {
+  background: #c96a66;
 }
 
 .continuum-note-menu-backdrop {
@@ -750,12 +770,17 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap {
-  width: min(100%, 500px);
+  --continuum-editor-text-padding: clamp(18px, 3vw, 32px);
+  box-sizing: content-box;
+  width: min(
+    500px,
+    calc(100% - var(--continuum-editor-text-padding) - var(--continuum-editor-text-padding))
+  );
   max-width: 500px;
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
-  padding: clamp(18px, 3vw, 32px);
+  padding: var(--continuum-editor-text-padding);
   color: var(--continuum-editor-text);
   font-family:
     "Sabon Pro Roman",
@@ -828,18 +853,13 @@ button:disabled {
     serif;
   font-size: 1.08em;
   font-variant-ligatures: discretionary-ligatures;
+  font-feature-settings: "onum" 1, "pnum" 1;
   font-variant-numeric: oldstyle-nums proportional-nums;
   font-weight: 400;
   letter-spacing: 0.02em;
   margin-bottom: 1.62rem;
   opacity: 1;
   text-align: center;
-}
-
-.continuum-editor-surface
-  .tiptap
-  p[data-node-type="aphorism"][data-aphorism-label="1"]::before {
-  font-variant-numeric: lining-nums proportional-nums;
 }
 
 .continuum-editor-surface .tiptap p[data-continuation="true"]::before {
@@ -932,7 +952,6 @@ button:disabled {
 
 .continuum-editor-menu {
   position: fixed;
-  width: min(430px, calc(100vw - 20px));
   max-height: calc(100vh - 20px);
   overflow: auto;
   border: 1px solid #474747;
@@ -970,6 +989,15 @@ button:disabled {
   font-weight: 500;
 }
 
+.continuum-menu-header-draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.continuum-menu-header-draggable:active {
+  cursor: grabbing;
+}
+
 .continuum-shell[data-theme="light"] .continuum-menu-header {
   border-bottom-color: rgba(29, 29, 27, 0.14);
   background: #fffdfa;
@@ -993,52 +1021,72 @@ button:disabled {
   color: rgb(0 0 0 / 0.62);
 }
 
-.continuum-menu-section {
-  border-bottom: 1px solid #262626;
-}
-
-.continuum-shell[data-theme="light"] .continuum-menu-section {
-  border-bottom-color: rgba(29, 29, 27, 0.12);
-}
-
-.continuum-menu-section summary {
+.continuum-menu-flyout-trigger {
   display: grid;
   grid-template-columns: 28px 1fr 18px;
   align-items: center;
+  width: 100%;
   min-height: 31px;
-  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid #262626;
+  background: transparent;
   color: #c9c9c9;
   cursor: pointer;
+  font-family: inherit;
   font-size: 13px;
   font-weight: 500;
-  list-style: none;
+  padding: 0 8px;
+  text-align: left;
 }
 
-.continuum-shell[data-theme="light"] .continuum-menu-section summary {
+.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger {
+  border-bottom-color: rgba(29, 29, 27, 0.12);
   color: rgb(0 0 0 / 0.76);
 }
 
-.continuum-menu-section summary::-webkit-details-marker {
-  display: none;
-}
-
-.continuum-menu-section summary:hover {
+.continuum-menu-flyout-trigger:hover,
+.continuum-menu-flyout-trigger.is-open {
   background: #171717;
 }
 
-.continuum-shell[data-theme="light"] .continuum-menu-section summary:hover {
+.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger:hover,
+.continuum-shell[data-theme="light"] .continuum-menu-flyout-trigger.is-open {
   background: rgba(29, 29, 27, 0.045);
 }
 
-.continuum-menu-section[open] .continuum-menu-chevron {
-  transform: rotate(90deg);
+.continuum-menu-flyout {
+  position: fixed;
+  z-index: 45;
+  max-height: calc(100vh - 20px);
+  overflow: auto;
+  border: 1px solid #474747;
+  border-radius: 8px;
+  background: #050505;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.62);
+  color: #ededed;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.22;
 }
 
-.continuum-menu-section-body {
+.continuum-shell[data-theme="light"] .continuum-menu-flyout {
+  border-color: rgba(29, 29, 27, 0.18);
+  background: #fffdfa;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.18);
+  color: rgb(0 0 0 / 0.89);
+}
+
+.continuum-menu-flyout-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 8px 10px 10px;
+}
+
+.continuum-menu-chevron-right {
+  transform: none;
 }
 
 .continuum-menu-list {
