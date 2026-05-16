@@ -123,8 +123,13 @@ Current MVP behavior:
   panel.
 - The user can explicitly keep the local version. Continuum updates its stored
   base remote revision to the current Diario revision and queues a new push.
-- “Keep remote” and “duplicate” remain follow-ups because the conflict response
-  currently carries revision metadata, not the full remote document body.
+- The user can apply the remote version. Continuum records the old local note as
+  a local revision before replacing the selected note with Diario's remote draft.
+- The user can duplicate the local conflicted draft, then apply the remote draft
+  to the original note. The duplicate is queued as a new dirty local draft so no
+  body of text is discarded.
+- Conflict payloads prefer the remote draft body from Diario. If it is missing,
+  Continuum performs a follow-up remote draft fetch before resolving.
 
 ## Fly Operating Assumption
 

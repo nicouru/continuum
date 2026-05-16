@@ -26,16 +26,14 @@ Implemented:
 - Diario HTTP draft sync client.
 - Remote draft import on login.
 - Remote revision checks for Diario draft pushes.
-- Basic conflict surface with explicit keep-local resolution.
+- Conflict surface with keep-local, use-remote, and duplicate-local resolution.
+- Split Vite vendor chunks for React, TipTap/ProseMirror, and KaTeX.
 - Structured note validation/conversion tests.
 
 Mocked or deferred:
 
 - Publishing/update/unpublish commands.
 - Search UI and SQLite FTS5 migrations.
-- Full keep-remote / duplicate conflict resolution. The MVP can safely keep the
-  local version; using the remote body requires full remote draft pull in the
-  conflict payload or a follow-up fetch path.
 - Full visual parity audit against Diario edge cases.
 - Production app icon/branding pass.
 
@@ -189,8 +187,5 @@ connect directly to the production database.
 ## Next Review Items
 
 - Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
-- Add full keep-remote / duplicate conflict resolution once remote bodies are
-  available in the conflict path.
 - Add SQLite FTS5 migrations after the search model is ready.
-- Code-split TipTap/KaTeX vendor chunks.
 - Exercise the app through `pnpm tauri:dev` on macOS with real writing sessions.
