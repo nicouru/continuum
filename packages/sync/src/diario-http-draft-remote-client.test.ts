@@ -152,6 +152,55 @@ describe("DiarioDraftHttpRemoteClient", () => {
     await expect(client.fetchRemoteMeta("note-1")).resolves.toBeNull()
   })
 
+  it("fetches a canonical new draft seed from Diario", async () => {
+    const calls: Array<{ init: Parameters<FetchLike>[1]; url: string }> = []
+    const fetchImpl: FetchLike = async (url, init) => {
+      calls.push({ init, url })
+      return {
+        headers: { get: () => null },
+        json: async () => ({
+          data: {
+            draft: {
+              ...draft(),
+              id: "seed-1",
+              references: [
+                {
+                  author: "Author",
+                  body: "Reference body",
+                  id: "reference-1",
+                  work: "Work",
+                },
+              ],
+            },
+            sync: { remoteRevision: 0 },
+          },
+          ok: true,
+        }),
+        ok: true,
+        status: 200,
+        text: async () => "",
+      }
+    }
+    const client = new DiarioDraftHttpRemoteClient({
+      baseUrl: "https://diario.example",
+      fetchImpl,
+      sessionCookie: "diario_admin_session=abc",
+    })
+
+    const result = await client.fetchNewDraftSeed()
+
+    expect(calls[0]?.url).toBe(
+      "https://diario.example/api/admin/v1/tiptap-draft?new=1",
+    )
+    expect(calls[0]?.init).toMatchObject({
+      credentials: "include",
+      method: "GET",
+    })
+    expect(result?.noteId).toBe("seed-1")
+    expect(result?.structuredDraft.references).toHaveLength(1)
+    expect(result?.remoteVersion).toBe(0)
+  })
+
   it("fetches a remote draft payload by note id", async () => {
     const calls: string[] = []
     const fetchImpl: FetchLike = async (url) => {

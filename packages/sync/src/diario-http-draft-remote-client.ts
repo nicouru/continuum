@@ -122,6 +122,24 @@ export class DiarioDraftHttpRemoteClient implements DraftRemoteClient {
     return data ? getRemoteDraftFromData(data, noteId) : null
   }
 
+  async fetchNewDraftSeed(): Promise<RemoteDraft | null> {
+    const response = await this.fetchImpl(this.url(`${TIPTAP_DRAFT_PATH}?new=1`), {
+      credentials: "include",
+      headers: this.headers(),
+      method: "GET",
+      timeout: this.timeoutSeconds,
+    })
+    const body = await readJsonOrText(response)
+
+    if (!response.ok) {
+      throw createRemoteError(response.status, body)
+    }
+
+    const envelope = body as AdminApiEnvelope
+    const data = "data" in envelope ? envelope.data : undefined
+    return isRecord(data) ? getRemoteDraftFromData(data as AdminDraftData) : null
+  }
+
   async listRemoteDrafts(): Promise<RemoteDraft[]> {
     const bulkDrafts = await this.fetchRemoteDraftsIndex()
 

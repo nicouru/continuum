@@ -773,7 +773,11 @@ export default function App() {
     }
     setCreatingNote(true)
     try {
-      const draft = createNewStructuredNoteDraft(new Date(), [])
+      const seed =
+        !offline && remote.mode === "http"
+          ? await remote.client.fetchNewDraftSeed?.().catch(() => null)
+          : null
+      const draft = seed?.structuredDraft ?? createNewStructuredNoteDraft(new Date(), [])
       const prototype = continuumBootstrapPrototype(draft)
       const saved = await repo.saveNote({
         bumpLocalVersion: true,

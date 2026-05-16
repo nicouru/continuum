@@ -33,6 +33,7 @@ export type RemoteDraft = {
 }
 
 export interface DraftRemoteClient {
+  fetchNewDraftSeed?(): Promise<RemoteDraft | null>
   fetchRemoteDraft?(noteId: string): Promise<RemoteDraft | null>
   fetchRemoteMeta(noteId: string): Promise<{ remoteVersion: number } | null>
   listRemoteDrafts?(): Promise<RemoteDraft[]>
