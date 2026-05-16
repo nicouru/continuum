@@ -265,6 +265,7 @@ export default function App() {
   const [title, setTitle] = useState("")
   const [writtenAt, setWrittenAt] = useState("")
   const [livePayload, setLivePayload] = useState<ContinuumEditorPayload | null>(null)
+  const livePayloadRef = useRef<ContinuumEditorPayload | null>(null)
 
   const [syncLabel, setSyncLabel] = useState("Listo")
   const [syncStatus, setSyncStatus] = useState<SyncStatusSummary | null>(null)
@@ -732,6 +733,25 @@ export default function App() {
     [deviceId, offline, refreshList, refreshSyncStatus, remote.mode, repo, selectedId],
   )
 
+  const flushPendingAutosave = useCallback(async () => {
+    const hadPendingAutosave = Boolean(debounceRef.current)
+    const payload = livePayloadRef.current
+    flushAutosaveTimer()
+    if (hadPendingAutosave && payload) {
+      await runSave(payload, { manual: false })
+    }
+  }, [runSave])
+
+  const flushPendingWorkOnline = useCallback(async () => {
+    await flushPendingAutosave()
+    if (offlineRef.current) {
+      return
+    }
+    await engineRef.current?.flushDirty()
+    await refreshList()
+    await refreshSyncStatus()
+  }, [flushPendingAutosave, refreshList, refreshSyncStatus])
+
   const scheduleAutosave = useCallback(
     (payload: ContinuumEditorPayload) => {
       flushAutosaveTimer()
@@ -753,8 +773,32 @@ export default function App() {
     return () => flushAutosaveTimer()
   }, [])
 
+  useEffect(() => {
+    const flush = () => {
+      void flushPendingWorkOnline()
+    }
+    const flushWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        flush()
+      }
+    }
+
+    window.addEventListener("focus", flush)
+    window.addEventListener("online", flush)
+    window.addEventListener("pagehide", flush)
+    document.addEventListener("visibilitychange", flushWhenVisible)
+
+    return () => {
+      window.removeEventListener("focus", flush)
+      window.removeEventListener("online", flush)
+      window.removeEventListener("pagehide", flush)
+      document.removeEventListener("visibilitychange", flushWhenVisible)
+    }
+  }, [flushPendingWorkOnline])
+
   const handleEditorPayload = useCallback(
     (payload: ContinuumEditorPayload) => {
+      livePayloadRef.current = payload
       setLivePayload(payload)
       scheduleAutosave(payload)
     },
