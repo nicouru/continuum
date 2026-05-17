@@ -288,8 +288,8 @@ export function ContinuumAiPanel({
             <section className="continuum-ai-panel-section">
               <span className="continuum-ai-panel-label">Advertencias</span>
               <ul className="continuum-ai-panel-warnings">
-                {correction.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
+                {correction.warnings.map((warning, index) => (
+                  <li key={`warning-${index}`}>{warning}</li>
                 ))}
               </ul>
             </section>

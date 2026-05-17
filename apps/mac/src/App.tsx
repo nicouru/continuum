@@ -834,8 +834,8 @@ export default function App() {
       correctionAbortRef.current?.abort()
       if (aiCorrectionSessionSaveTimerRef.current !== undefined) {
         window.clearTimeout(aiCorrectionSessionSaveTimerRef.current)
-        void writeAiCorrectionSessions(aiCorrectionSessionsRef.current)
       }
+      writeAiCorrectionSessions(aiCorrectionSessionsRef.current).catch(() => {})
     }
   }, [])
 
@@ -1278,6 +1278,7 @@ export default function App() {
       )
 
       if (isAiCorrectionSelectionError(currentIdentity)) {
+        setAiCorrection({ status: "idle" })
         return
       }
 
@@ -1285,6 +1286,7 @@ export default function App() {
         currentIdentity.key !== identity.key ||
         currentIdentity.map.plainText !== identity.map.plainText
       ) {
+        setAiCorrection({ status: "idle" })
         return
       }
 
@@ -1358,7 +1360,6 @@ export default function App() {
         return
       }
 
-      const baseSuggestions = aiCorrection.suggestions
       const result = applyCorrectionSuggestionToEditor(
         editorRef.current,
         aiCorrection.map,
@@ -1376,7 +1377,7 @@ export default function App() {
           const extraction = extractSelectionPlainTextMap(editorRef.current)
           const nextMap = extraction.ok ? extraction.map : current.map
           const updatedSuggestions = shiftSuggestionOffsets(
-            baseSuggestions.map((item) =>
+            current.suggestions.map((item) =>
               item.id === suggestionId ? { ...item, status: "applied" } : item,
             ),
             suggestion.originalOffset,
