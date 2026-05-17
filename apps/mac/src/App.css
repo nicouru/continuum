@@ -291,6 +291,10 @@
   width: 17px;
   height: 17px;
   flex: none;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-width: 1.5;
   transition: transform 200ms ease;
 }
