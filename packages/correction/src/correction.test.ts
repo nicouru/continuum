@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest"
 import {
   buildCorrectionDiffChanges,
   createCorrectionSuggestions,
+  findCorrectionSession,
+  normalizeCorrectionSessionRecords,
   parseOpenAiCorrectionResponseBody,
+  rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
   renderCorrectedPreview,
   shiftSuggestionOffsets,
+  upsertCorrectionSession,
   validateCorrectionModelResponse,
 } from "./index"
 
@@ -202,10 +206,138 @@ describe("shiftSuggestionOffsets", () => {
   })
 })
 
+describe("rebaseCorrectionSuggestionOffsets", () => {
+  it("keeps later suggestions pending when the user inserts text before them", () => {
+    const suggestions = createCorrectionSuggestions(
+      "esta linea tiene aser",
+      "está línea tiene hacer",
+    )
+    const currentText = "nota: esta linea tiene aser"
+
+    expect(
+      rebaseCorrectionSuggestionOffsets(
+        suggestions,
+        "esta linea tiene aser",
+        currentText,
+      ),
+    ).toMatchObject([
+      { original: "esta", originalOffset: "nota: ".length, status: "pending" },
+      {
+        original: "linea",
+        originalOffset: "nota: esta ".length,
+        status: "pending",
+      },
+      {
+        original: "aser",
+        originalOffset: "nota: esta linea tiene ".length,
+        status: "pending",
+      },
+    ])
+  })
+
+  it("marks ambiguous moved suggestions stale", () => {
+    const suggestions = [
+      {
+        id: "linea",
+        original: "linea",
+        originalLength: "linea".length,
+        originalOffset: 0,
+        replacement: "línea",
+        status: "pending" as const,
+      },
+    ]
+
+    const [rebased] = rebaseCorrectionSuggestionOffsets(
+      suggestions,
+      "linea",
+      "x linea x linea",
+    )
+
+    expect(rebased).toMatchObject({
+      status: "stale",
+    })
+  })
+})
+
 describe("renderCorrectedPreview", () => {
   it("highlights changed fragments", () => {
     expect(renderCorrectedPreview("esta", "está")).toEqual([
       { kind: "changed", text: "está" },
+    ])
+  })
+})
+
+describe("correction session records", () => {
+  it("upserts by key and keeps the newest records first", () => {
+    const oldSession = {
+      key: "note-1:block-a",
+      noteId: "note-1",
+      selectionKey: "block-a",
+      sourceText: "esta linea",
+      currentText: "esta linea",
+      correctedText: "está línea",
+      warnings: [],
+      suggestions: createCorrectionSuggestions("esta linea", "está línea"),
+      updatedAt: 10,
+    }
+    const updatedSession = {
+      ...oldSession,
+      currentText: "está linea",
+      updatedAt: 20,
+    }
+    const otherSession = {
+      ...oldSession,
+      key: "note-1:block-b",
+      selectionKey: "block-b",
+      updatedAt: 15,
+    }
+
+    const records = upsertCorrectionSession(
+      upsertCorrectionSession([oldSession], otherSession),
+      updatedSession,
+    )
+
+    expect(records).toHaveLength(2)
+    expect(records[0]).toMatchObject({
+      key: "note-1:block-a",
+      currentText: "está linea",
+      updatedAt: 20,
+    })
+    expect(findCorrectionSession(records, "note-1:block-b")).toMatchObject({
+      selectionKey: "block-b",
+    })
+  })
+
+  it("normalizes stored records and drops malformed entries", () => {
+    expect(
+      normalizeCorrectionSessionRecords([
+        {
+          key: "note-1:block-a",
+          noteId: "note-1",
+          selectionKey: "block-a",
+          currentText: "esta",
+          correctedText: "está",
+          warnings: [1, "revisar"],
+          suggestions: [
+            {
+              id: "s-1",
+              original: "esta",
+              replacement: "está",
+              originalOffset: 0,
+              originalLength: 4,
+              status: "pending",
+            },
+          ],
+          updatedAt: 1,
+        },
+        { key: "broken" },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        key: "note-1:block-a",
+        sourceText: "esta",
+        warnings: ["revisar"],
+      }),
     ])
   })
 })

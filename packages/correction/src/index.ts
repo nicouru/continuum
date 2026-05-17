@@ -19,10 +19,19 @@ export {
 export { CORRECTION_RESPONSE_JSON_SCHEMA } from "./schema"
 export {
   createCorrectionSuggestions,
+  rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
   renderCorrectedPreview,
   shiftSuggestionOffsets,
 } from "./suggestions"
+export {
+  MAX_CORRECTION_SESSIONS,
+  findCorrectionSession,
+  normalizeCorrectionSessionRecords,
+  upsertCorrectionSession,
+  type CorrectionSessionIdentity,
+  type CorrectionSessionRecord,
+} from "./session"
 export { validateCorrectionModelResponse } from "./validate"
 export { type CorrectionDiffChange } from "./diff"
 export {

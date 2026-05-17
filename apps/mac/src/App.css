@@ -906,12 +906,38 @@ button:disabled {
 }
 
 .continuum-ai-panel-preview-change {
+  display: inline;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
   font-weight: 700;
   color: #ffd27a;
+  cursor: pointer;
+  font: inherit;
+  padding: 0 1px;
+  text-align: inherit;
+  white-space: pre-wrap;
+}
+
+.continuum-ai-panel-preview-change:hover {
+  background: rgb(255 210 122 / 0.12);
+}
+
+.continuum-ai-panel-preview-change:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.continuum-ai-panel-preview-muted {
+  color: #9d9d9d;
 }
 
 .continuum-shell[data-theme="light"] .continuum-ai-panel-preview-change {
   color: #9a5b00;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-preview-change:hover {
+  background: rgb(154 91 0 / 0.1);
 }
 
 .continuum-ai-panel-suggestions-header {

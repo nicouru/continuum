@@ -1,5 +1,8 @@
-import type { CorrectionSuggestion, CorrectionUsageMetadata } from "@continuum/correction"
-import { renderCorrectedPreview } from "@continuum/correction"
+import type {
+  CorrectionSessionIdentity,
+  CorrectionSuggestion,
+  CorrectionUsageMetadata,
+} from "@continuum/correction"
 import type { SelectionPlainTextMap } from "@continuum/editor"
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react"
 
@@ -12,6 +15,8 @@ export type ContinuumAiPanelCorrectionState =
     }
   | {
       status: "ready"
+      session?: CorrectionSessionIdentity
+      sourceText: string
       originalText: string
       correctedText: string
       warnings: string[]
@@ -37,16 +42,6 @@ type ContinuumAiPanelProps = {
   y: number
 }
 
-function suggestionLabel(suggestion: CorrectionSuggestion) {
-  if (suggestion.original && suggestion.replacement) {
-    return `${suggestion.original} → ${suggestion.replacement}`
-  }
-  if (suggestion.replacement) {
-    return `Agregar: ${suggestion.replacement}`
-  }
-  return `Quitar: ${suggestion.original}`
-}
-
 function suggestionStatusLabel(status: CorrectionSuggestion["status"]) {
   switch (status) {
     case "applied":
@@ -60,6 +55,50 @@ function suggestionStatusLabel(status: CorrectionSuggestion["status"]) {
     default:
       return null
   }
+}
+
+type PreviewSegment =
+  | { kind: "text"; text: string }
+  | { kind: "suggestion"; suggestion: CorrectionSuggestion; text: string }
+
+function buildActionablePreviewSegments(
+  text: string,
+  suggestions: CorrectionSuggestion[],
+): PreviewSegment[] {
+  const segments: PreviewSegment[] = []
+  let cursor = 0
+
+  const pendingSuggestions = suggestions
+    .filter((suggestion) => suggestion.status === "pending")
+    .sort((left, right) => left.originalOffset - right.originalOffset)
+
+  for (const suggestion of pendingSuggestions) {
+    const start = suggestion.originalOffset
+    const end = start + suggestion.originalLength
+
+    if (start < cursor || text.slice(start, end) !== suggestion.original) {
+      continue
+    }
+
+    if (cursor < start) {
+      segments.push({ kind: "text", text: text.slice(cursor, start) })
+    }
+
+    segments.push({
+      kind: "suggestion",
+      suggestion,
+      text:
+        suggestion.replacement ||
+        (suggestion.original ? `Quitar “${suggestion.original}”` : "Aplicar"),
+    })
+    cursor = end
+  }
+
+  if (cursor < text.length) {
+    segments.push({ kind: "text", text: text.slice(cursor) })
+  }
+
+  return segments.length > 0 ? segments : [{ kind: "text", text }]
 }
 
 export function ContinuumAiPanel({
@@ -257,58 +296,45 @@ export function ContinuumAiPanel({
           ) : null}
 
           <section className="continuum-ai-panel-section">
-            <span className="continuum-ai-panel-label">Vista previa corregida</span>
-            <div className="continuum-ai-panel-preview">
-              {renderCorrectedPreview(correction.originalText, correction.correctedText).map(
-                (segment, index) => (
-                  <span
-                    key={`${segment.kind}-${index}`}
-                    className={
-                      segment.kind === "changed"
-                        ? "continuum-ai-panel-preview-change"
-                        : undefined
-                    }
-                  >
-                    {segment.text}
-                  </span>
-                ),
-              )}
-            </div>
-          </section>
-
-          <section className="continuum-ai-panel-section">
             <div className="continuum-ai-panel-suggestions-header">
-              <span className="continuum-ai-panel-label">Correcciones sugeridas</span>
+              <span className="continuum-ai-panel-label">Vista previa corregida</span>
               {canApplyAll ? (
                 <button type="button" className="continuum-ai-panel-secondary" onClick={onApplyAll}>
                   Aplicar todas
                 </button>
               ) : null}
             </div>
-            {correction.suggestions.length === 0 ? (
-              <p className="continuum-ai-panel-hint">No se detectaron cambios.</p>
-            ) : (
-              <ul className="continuum-ai-panel-suggestions">
-                {correction.suggestions.map((suggestion) => {
-                  const statusLabel = suggestionStatusLabel(suggestion.status)
-                  const disabled = suggestion.status !== "pending"
+            <div className="continuum-ai-panel-preview">
+              {correction.suggestions.length === 0 ? (
+                <span className="continuum-ai-panel-preview-muted">
+                  No se detectaron cambios.
+                </span>
+              ) : (
+                buildActionablePreviewSegments(
+                  correction.originalText,
+                  correction.suggestions,
+                ).map((segment, index) => {
+                  if (segment.kind === "text") {
+                    return <span key={`text-${index}`}>{segment.text}</span>
+                  }
+
+                  const statusLabel = suggestionStatusLabel(segment.suggestion.status)
 
                   return (
-                    <li key={suggestion.id}>
-                      <button
-                        type="button"
-                        className="continuum-ai-panel-suggestion"
-                        disabled={disabled}
-                        onClick={() => onApplySuggestion(suggestion.id)}
-                      >
-                        <span>{suggestionLabel(suggestion)}</span>
-                        {statusLabel ? <small>{statusLabel}</small> : null}
-                      </button>
-                    </li>
+                    <button
+                      key={segment.suggestion.id}
+                      type="button"
+                      className="continuum-ai-panel-preview-change"
+                      disabled={segment.suggestion.status !== "pending"}
+                      title={statusLabel ?? "Aplicar esta corrección"}
+                      onClick={() => onApplySuggestion(segment.suggestion.id)}
+                    >
+                      {segment.text}
+                    </button>
                   )
-                })}
-              </ul>
-            )}
+                })
+              )}
+            </div>
           </section>
 
           {correction.usage ? (

@@ -78,6 +78,139 @@ export function refreshCorrectionSuggestionStatuses(
   })
 }
 
+function findOccurrences(text: string, fragment: string) {
+  if (!fragment) {
+    return []
+  }
+
+  const occurrences: number[] = []
+  let cursor = text.indexOf(fragment)
+
+  while (cursor !== -1) {
+    occurrences.push(cursor)
+    cursor = text.indexOf(fragment, cursor + Math.max(1, fragment.length))
+  }
+
+  return occurrences
+}
+
+function countSharedSuffix(left: string, right: string) {
+  const limit = Math.min(left.length, right.length)
+
+  for (let index = 0; index < limit; index += 1) {
+    if (left[left.length - 1 - index] !== right[right.length - 1 - index]) {
+      return index
+    }
+  }
+
+  return limit
+}
+
+function countSharedPrefix(left: string, right: string) {
+  const limit = Math.min(left.length, right.length)
+
+  for (let index = 0; index < limit; index += 1) {
+    if (left[index] !== right[index]) {
+      return index
+    }
+  }
+
+  return limit
+}
+
+function scoreOccurrenceContext(
+  previousText: string,
+  currentText: string,
+  previousOffset: number,
+  currentOffset: number,
+  length: number,
+) {
+  const contextSize = 18
+  const previousBefore = previousText.slice(
+    Math.max(0, previousOffset - contextSize),
+    previousOffset,
+  )
+  const previousAfter = previousText.slice(
+    previousOffset + length,
+    previousOffset + length + contextSize,
+  )
+  const currentBefore = currentText.slice(
+    Math.max(0, currentOffset - contextSize),
+    currentOffset,
+  )
+  const currentAfter = currentText.slice(
+    currentOffset + length,
+    currentOffset + length + contextSize,
+  )
+
+  return (
+    countSharedSuffix(previousBefore, currentBefore) +
+    countSharedPrefix(previousAfter, currentAfter)
+  )
+}
+
+export function rebaseCorrectionSuggestionOffsets(
+  suggestions: CorrectionSuggestion[],
+  previousText: string,
+  currentText: string,
+): CorrectionSuggestion[] {
+  if (previousText === currentText) {
+    return refreshCorrectionSuggestionStatuses(suggestions, currentText)
+  }
+
+  return suggestions.map((suggestion) => {
+    if (suggestion.status !== "pending") {
+      return suggestion
+    }
+
+    const directMatch = currentText.slice(
+      suggestion.originalOffset,
+      suggestion.originalOffset + suggestion.originalLength,
+    )
+
+    if (directMatch === suggestion.original) {
+      return suggestion
+    }
+
+    const occurrences = findOccurrences(currentText, suggestion.original)
+
+    if (occurrences.length === 0) {
+      return { ...suggestion, status: "stale" as const }
+    }
+
+    if (occurrences.length === 1) {
+      return { ...suggestion, originalOffset: occurrences[0]! }
+    }
+
+    const scored = occurrences
+      .map((offset) => ({
+        offset,
+        score: scoreOccurrenceContext(
+          previousText,
+          currentText,
+          suggestion.originalOffset,
+          offset,
+          suggestion.originalLength,
+        ),
+        distance: Math.abs(offset - suggestion.originalOffset),
+      }))
+      .sort((left, right) => {
+        if (right.score !== left.score) {
+          return right.score - left.score
+        }
+        return left.distance - right.distance
+      })
+
+    const [best, second] = scored
+
+    if (!best || best.score === 0 || (second && second.score === best.score)) {
+      return { ...suggestion, status: "stale" as const }
+    }
+
+    return { ...suggestion, originalOffset: best.offset }
+  })
+}
+
 export function renderCorrectedPreview(
   originalText: string,
   correctedText: string,
