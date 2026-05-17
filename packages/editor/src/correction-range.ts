@@ -172,6 +172,40 @@ function collectSegmentsForPlainRange(
   )
 }
 
+function plainRangeIsFullyMapped(
+  segments: SelectionPlainTextSegment[],
+  plainFrom: number,
+  plainTo: number,
+) {
+  if (plainFrom === plainTo) {
+    return segments.some(
+      (segment) => plainFrom >= segment.plainFrom && plainFrom <= segment.plainTo,
+    )
+  }
+
+  const overlapping = collectSegmentsForPlainRange(segments, plainFrom, plainTo).sort(
+    (left, right) => left.plainFrom - right.plainFrom,
+  )
+
+  if (overlapping.length === 0) {
+    return false
+  }
+
+  let cursor = plainFrom
+
+  for (const segment of overlapping) {
+    const segmentStart = Math.max(segment.plainFrom, plainFrom)
+
+    if (segmentStart > cursor) {
+      return false
+    }
+
+    cursor = Math.max(cursor, Math.min(segment.plainTo, plainTo))
+  }
+
+  return cursor >= plainTo
+}
+
 export function verifyPlainTextMatchesMap(map: SelectionPlainTextMap, expected: string) {
   return map.plainText === expected
 }
@@ -192,16 +226,14 @@ export function canSafelyApplySuggestion(
     return false
   }
 
-  const coveredSegments = collectSegmentsForPlainRange(map.segments, plainFrom, plainTo)
-
-  if (coveredSegments.length !== 1) {
+  if (!plainRangeIsFullyMapped(map.segments, plainFrom, plainTo)) {
     return false
   }
 
   const docFrom = mapPlainOffsetToDocPosition(map.segments, plainFrom)
   const docTo = mapPlainOffsetToDocPosition(map.segments, plainTo)
 
-  return docFrom !== null && docTo !== null && docFrom < docTo
+  return docFrom !== null && docTo !== null && docFrom <= docTo
 }
 
 function getTextMarksForRange(
@@ -222,6 +254,30 @@ function getTextMarksForRange(
 
     marks = node.marks
     return false
+  })
+
+  return marks
+}
+
+function getTextMarksBeforePosition(editor: Editor, position: number) {
+  let marks = null as readonly ReturnType<typeof editor.state.schema.mark>[] | null
+
+  editor.state.doc.nodesBetween(0, position, (node, nodePosition) => {
+    if (!node.isText) {
+      return
+    }
+
+    const nodeFrom = nodePosition
+    const nodeTo = nodePosition + node.nodeSize
+
+    if (nodeTo > position && nodeFrom < position) {
+      marks = node.marks
+      return false
+    }
+
+    if (nodeTo === position) {
+      marks = node.marks
+    }
   })
 
   return marks
@@ -248,7 +304,7 @@ export function applyCorrectionSuggestionToEditor(
   const docFrom = mapPlainOffsetToDocPosition(map.segments, plainFrom)
   const docTo = mapPlainOffsetToDocPosition(map.segments, plainTo)
 
-  if (docFrom === null || docTo === null || docFrom >= docTo) {
+  if (docFrom === null || docTo === null || docFrom > docTo) {
     return {
       status: "unsafe",
       reason: "No se puede aplicar esta corrección de forma segura.",
@@ -262,13 +318,20 @@ export function applyCorrectionSuggestionToEditor(
     }
   }
 
-  const currentFragment = editor.state.doc.textBetween(docFrom, docTo, "", getCorrectionLeafText)
+  const isPureInsertion = suggestion.originalLength === 0
 
-  if (currentFragment !== suggestion.original) {
-    return { status: "stale" }
+  if (!isPureInsertion) {
+    const currentFragment = editor.state.doc.textBetween(docFrom, docTo, "", getCorrectionLeafText)
+
+    if (currentFragment !== suggestion.original) {
+      return { status: "stale" }
+    }
   }
 
-  const marks = getTextMarksForRange(editor, docFrom, docTo)
+  const marks =
+    docFrom === docTo
+      ? getTextMarksBeforePosition(editor, docFrom)
+      : getTextMarksForRange(editor, docFrom, docTo)
 
   if (!marks) {
     return {
@@ -280,7 +343,16 @@ export function applyCorrectionSuggestionToEditor(
   const transaction = editor.state.tr
   const lengthDelta = suggestion.replacement.length - suggestion.originalLength
 
-  if (suggestion.replacement.length > 0) {
+  if (isPureInsertion) {
+    if (suggestion.replacement.length === 0) {
+      return {
+        status: "unsafe",
+        reason: "No se puede aplicar esta corrección de forma segura.",
+      }
+    }
+
+    transaction.insert(docFrom, editor.state.schema.text(suggestion.replacement, marks))
+  } else if (suggestion.replacement.length > 0) {
     transaction.replaceWith(
       docFrom,
       docTo,

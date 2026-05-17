@@ -197,6 +197,18 @@ describe("canSafelyApplySuggestion", () => {
 })
 
 describe("extractSelectionPlainTextMap", () => {
+  it("returns ok false for an empty selection", () => {
+    const editor = makeParagraphEditor(["esta en casa"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection(range!.from)
+
+    expect(extractSelectionPlainTextMap(editor)).toEqual({
+      ok: false,
+      reason: "No hay texto seleccionado.",
+    })
+    editor.destroy()
+  })
+
   it("matches ProseMirror textBetween for selections across paragraphs", () => {
     const editor = makeParagraphEditor(["primera linea", "segunda linea"])
     const ranges = getTextRanges(editor)
@@ -400,6 +412,157 @@ describe("extractSelectionPlainTextMap", () => {
     if (afterApply.ok) {
       expect(afterApply.map.plainText).toBe("esta el casa")
     }
+    editor.destroy()
+  })
+
+  it("applies a pure insertion after the preceding word", () => {
+    const editor = makeParagraphEditor(["hola mundo"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection({ from: range!.from, to: range!.to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    const suggestion = makeSuggestion({
+      original: "",
+      replacement: "muy ",
+      originalOffset: "hola ".length,
+      originalLength: 0,
+    })
+
+    expect(canSafelyApplySuggestion(extraction.map, suggestion)).toBe(true)
+    expect(applyCorrectionSuggestionToEditor(editor, extraction.map, suggestion)).toEqual({
+      status: "applied",
+    })
+
+    const afterApply = extractSelectionPlainTextMap(editor)
+    expect(afterApply.ok).toBe(true)
+    if (afterApply.ok) {
+      expect(afterApply.map.plainText).toBe("hola muy mundo")
+    }
+    editor.destroy()
+  })
+
+  it("returns stale when the mapped text changed before apply", () => {
+    const editor = makeParagraphEditor(["esta prueba"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection({ from: range!.from, to: range!.to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    const suggestion = makeSuggestion({
+      original: "esta",
+      replacement: "está",
+      originalOffset: 0,
+      originalLength: "esta".length,
+    })
+
+    editor.view.dispatch(editor.state.tr.insertText("x", range!.from))
+
+    expect(applyCorrectionSuggestionToEditor(editor, extraction.map, suggestion)).toEqual({
+      status: "stale",
+    })
+    editor.destroy()
+  })
+
+  it("keeps later text intact after a deletion and a later suggestion", () => {
+    const editor = makeParagraphEditor(["sobre valorar esar"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection({ from: range!.from, to: range!.to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    let suggestions: CorrectionSuggestion[] = [
+      {
+        id: "remove-sobre",
+        original: "sobre",
+        originalLength: "sobre".length,
+        originalOffset: 0,
+        replacement: "",
+        status: "pending",
+      },
+      {
+        id: "esar",
+        original: "esar",
+        originalLength: "esar".length,
+        originalOffset: "sobre valorar ".length,
+        replacement: "estar",
+        status: "pending",
+      },
+    ]
+
+    const first = suggestions[0]!
+    expect(applyCorrectionSuggestionToEditor(editor, extraction.map, first)).toEqual({
+      status: "applied",
+    })
+
+    suggestions = shiftSuggestionOffsets(
+      suggestions.map((item) =>
+        item.id === first.id ? { ...item, status: "applied" } : item,
+      ),
+      first.originalOffset,
+      first.originalLength,
+      first.replacement.length - first.originalLength,
+    )
+
+    const afterDelete = extractSelectionPlainTextMap(editor)
+    expect(afterDelete.ok).toBe(true)
+    if (!afterDelete.ok) {
+      editor.destroy()
+      return
+    }
+
+    suggestions = refreshCorrectionSuggestionStatuses(suggestions, afterDelete.map.plainText)
+    const second = suggestions.find((item) => item.id === "esar")!
+
+    expect(applyCorrectionSuggestionToEditor(editor, afterDelete.map, second)).toEqual({
+      status: "applied",
+    })
+    expect(editor.state.doc.textContent).toBe(" valorar estar")
+    editor.destroy()
+  })
+
+  it("blocks corrections that cross inline math", () => {
+    const editor = makeStructuredEditor()
+    const ranges = getTextRanges(editor)
+    const from = ranges[0]!.from
+    const to = ranges[1]!.to
+    editor.commands.setTextSelection({ from, to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    const crossMathCorrection = makeSuggestion({
+      original: "algebraica $x^y$",
+      replacement: "algebraica $x^2$",
+      originalOffset: 0,
+      originalLength: "algebraica $x^y$".length,
+    })
+
+    expect(canSafelyApplySuggestion(extraction.map, crossMathCorrection)).toBe(false)
+    expect(
+      applyCorrectionSuggestionToEditor(editor, extraction.map, crossMathCorrection),
+    ).toMatchObject({
+      status: "unsafe",
+    })
     editor.destroy()
   })
 

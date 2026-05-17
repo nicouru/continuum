@@ -45,6 +45,7 @@ export type OpenAiCorrectionRequestConfig = {
   text: string
 }
 
+// Override via VITE_OPENAI_CORRECTION_MODEL when wiring the provider in the app shell.
 const DEFAULT_MODEL = "gpt-5.4-mini"
 const DEFAULT_API_URL = "https://api.openai.com/v1/responses"
 
@@ -114,6 +115,8 @@ export class OpenAiCorrectionProvider implements CorrectionProvider {
     request: CorrectionRequest,
     options: CorrectionProviderOptions = {},
   ): Promise<CorrectionResult> {
+    // CorrectionRequest exposes locale and mode, but SYSTEM_INSTRUCTION is static
+    // today and already assumes Rioplatense Spanish with orthography/grammar focus.
     const text = request.text
 
     if (!text.trim()) {

@@ -21,7 +21,6 @@ export {
   createCorrectionSuggestions,
   rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
-  renderCorrectedPreview,
   shiftSuggestionOffsets,
 } from "./suggestions"
 export {
