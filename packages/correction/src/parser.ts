@@ -12,7 +12,7 @@ type ResponsesOutputItem = {
 export type OpenAiCorrectionUsageContext = {
   model?: string
   promptCacheKey?: string
-  promptCacheRetention?: "in_memory" | "24h"
+  promptCacheRetention?: "in-memory" | "24h"
 }
 
 export function parseOpenAiCorrectionUsage(
@@ -35,17 +35,22 @@ export function parseOpenAiCorrectionUsage(
 
   if (typeof usageRecord.input_tokens === "number") {
     metadata.inputTokens = usageRecord.input_tokens
+  } else if (typeof usageRecord.prompt_tokens === "number") {
+    metadata.inputTokens = usageRecord.prompt_tokens
   }
 
   if (typeof usageRecord.output_tokens === "number") {
     metadata.outputTokens = usageRecord.output_tokens
+  } else if (typeof usageRecord.completion_tokens === "number") {
+    metadata.outputTokens = usageRecord.completion_tokens
   }
 
   if (typeof usageRecord.total_tokens === "number") {
     metadata.totalTokens = usageRecord.total_tokens
   }
 
-  const inputDetails = usageRecord.input_tokens_details
+  const inputDetails =
+    usageRecord.input_tokens_details ?? usageRecord.prompt_tokens_details
 
   if (inputDetails && typeof inputDetails === "object") {
     const cached = (inputDetails as Record<string, unknown>).cached_tokens

@@ -18,7 +18,7 @@ El texto seleccionado por el usuario **solo** va en `input` (rol `user`). Las in
 | `VITE_OPENAI_API_KEY` | Sí (para usar IA) | — | Clave de API OpenAI |
 | `VITE_OPENAI_CORRECTION_MODEL` | No | `gpt-5.4-mini` | Modelo de la Responses API |
 | `VITE_OPENAI_PROMPT_CACHE_KEY` | No | `continuum-ai-correction-v1` | Clave estable para [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) |
-| `VITE_OPENAI_PROMPT_CACHE_RETENTION` | No | *(omitido)* | `in_memory` o `24h`; si falta o es inválido, se omite y OpenAI usa el default |
+| `VITE_OPENAI_PROMPT_CACHE_RETENTION` | No | *(omitido)* | `in-memory` o `24h`; si falta o es inválido, se omite y OpenAI usa el default. Por compatibilidad, `in_memory` se normaliza a `in-memory`. |
 
 Configurá las variables en `apps/mac/.env` o en el entorno de build.
 
@@ -28,7 +28,7 @@ OpenAI cachea prefijos **idénticos** del prompt (instrucciones + esquema + form
 
 - Mantiene `SYSTEM_INSTRUCTION` y `CORRECTION_RESPONSE_JSON_SCHEMA` estables.
 - Envía `prompt_cache_key` en cada request (default `continuum-ai-correction-v1`).
-- Opcionalmente envía `prompt_cache_retention` solo si configurás `VITE_OPENAI_PROMPT_CACHE_RETENTION` (`in_memory` o `24h`). **No** se habilita `24h` por defecto.
+- Opcionalmente envía `prompt_cache_retention` solo si configurás `VITE_OPENAI_PROMPT_CACHE_RETENTION` (`in-memory` o `24h`). **No** se habilita `24h` por defecto.
 - Coloca el texto seleccionado **al final** (`input`), sin IDs de nota, títulos, cursor ni estado de UI en el prefijo.
 
 El caching reduce costo/latencia de tokens de entrada; **no** reutiliza respuestas anteriores. Los prompts &lt; 1024 tokens pueden reportar `cached_tokens: 0`.
@@ -40,7 +40,7 @@ El caching reduce costo/latencia de tokens de entrada; **no** reutiliza respuest
   "model": "gpt-5.4-mini",
   "instructions": "<SYSTEM_INSTRUCTION constante>",
   "prompt_cache_key": "continuum-ai-correction-v1",
-  "prompt_cache_retention": "in_memory",
+  "prompt_cache_retention": "in-memory",
   "input": [
     {
       "role": "user",
@@ -65,7 +65,7 @@ El caching reduce costo/latencia de tokens de entrada; **no** reutiliza respuest
 El modelo devuelve JSON estricto (`corrected_text`, `warnings`). Opcionalmente, `CorrectionResult.usage` incluye:
 
 - `inputTokens` ← `usage.input_tokens`
-- `cachedInputTokens` ← `usage.input_tokens_details.cached_tokens`
+- `cachedInputTokens` ← `usage.input_tokens_details.cached_tokens` o `usage.prompt_tokens_details.cached_tokens`
 - `outputTokens` ← `usage.output_tokens`
 - `totalTokens` ← `usage.total_tokens`
 - `model`, `promptCacheKey`, `promptCacheRetention`

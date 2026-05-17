@@ -90,14 +90,14 @@ export function extractSelectionPlainTextMap(editor: Editor | null): SelectionPl
 
   const segments: SelectionPlainTextSegment[] = []
   let plainCursor = 0
-  let pendingBlockSeparator = false
+  let hasSeenEditableTextBlock = false
 
   editor.state.doc.nodesBetween(from, to, (node, position) => {
-    if (node.isBlock && isEditableTextBlockType(node.type.name) && position >= from) {
-      if (pendingBlockSeparator && plainCursor < plainText.length) {
+    if (node.isBlock && isEditableTextBlockType(node.type.name)) {
+      if (hasSeenEditableTextBlock && plainCursor < plainText.length) {
         plainCursor += 1
       }
-      pendingBlockSeparator = true
+      hasSeenEditableTextBlock = true
       return
     }
 
@@ -128,7 +128,6 @@ export function extractSelectionPlainTextMap(editor: Editor | null): SelectionPl
       plainFrom,
       plainTo: plainCursor,
     })
-    pendingBlockSeparator = false
   })
 
   if (segments.length === 0) {

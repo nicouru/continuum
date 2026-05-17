@@ -15,7 +15,7 @@ export type CorrectionUsageMetadata = {
   totalTokens?: number
   model?: string
   promptCacheKey?: string
-  promptCacheRetention?: "in_memory" | "24h"
+  promptCacheRetention?: "in-memory" | "24h"
 }
 
 export type CorrectionResult = {

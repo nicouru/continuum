@@ -1,6 +1,6 @@
 export const DEFAULT_PROMPT_CACHE_KEY = "continuum-ai-correction-v1"
 
-export type PromptCacheRetention = "in_memory" | "24h"
+export type PromptCacheRetention = "in-memory" | "24h"
 
 export function resolvePromptCacheKey(value: string | undefined): string {
   const trimmed = value?.trim()
@@ -16,8 +16,12 @@ export function resolvePromptCacheRetention(
     return undefined
   }
 
-  if (trimmed === "in_memory" || trimmed === "24h") {
+  if (trimmed === "in-memory" || trimmed === "24h") {
     return trimmed
+  }
+
+  if (trimmed === "in_memory") {
+    return "in-memory"
   }
 
   return undefined
