@@ -14,7 +14,7 @@ export async function readAiCorrectionSessions(): Promise<CorrectionSessionRecor
   const allSessions = normalizeCorrectionSessionRecords(await store.get<unknown>(STORE_KEY))
   const now = Date.now()
   const validSessions = allSessions.filter((session) => {
-    return session.updatedAt ? now - session.updatedAt < TTL_MS : true
+    return session.updatedAt > 0 && now - session.updatedAt < TTL_MS
   })
 
   if (validSessions.length < allSessions.length) {

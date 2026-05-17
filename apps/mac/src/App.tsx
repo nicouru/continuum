@@ -732,6 +732,7 @@ export default function App() {
   const correctionAbortRef = useRef<AbortController | null>(null)
   const aiCorrectionSessionsRef = useRef<CorrectionSessionRecord[]>([])
   const aiCorrectionSessionSaveTimerRef = useRef<number | undefined>(undefined)
+  const pendingAiHighlightRef = useRef<{ from: number; to: number } | null>(null)
   const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
@@ -1214,21 +1215,29 @@ export default function App() {
     [],
   )
 
+  useEffect(() => {
+    pendingAiHighlightRef.current = null
+    dispatchAiSelectionHighlight(null)
+  }, [selectedId, dispatchAiSelectionHighlight])
+
   const closeAiPanel = useCallback(() => {
     correctionAbortRef.current?.abort()
     correctionAbortRef.current = null
+    pendingAiHighlightRef.current = null
     setAiPanelOpen(false)
     setAiCorrection({ status: "idle" })
   }, [])
 
-  // Keep the AI selection highlight in sync with the panel open state.
-  // When the panel opens, paint the current editor selection so it stays visible
-  // even after the user clicks into the panel and the editor loses focus.
-  // When the panel closes the decoration is cleared. Position mapping in the
-  // ProseMirror plugin keeps the range valid across corrections applied to the doc.
   useEffect(() => {
     if (!aiPanelOpen) {
+      pendingAiHighlightRef.current = null
       dispatchAiSelectionHighlight(null)
+      return
+    }
+    const pendingHighlight = pendingAiHighlightRef.current
+    if (pendingHighlight && pendingHighlight.from < pendingHighlight.to) {
+      pendingAiHighlightRef.current = null
+      dispatchAiSelectionHighlight(pendingHighlight)
       return
     }
     const editor = editorRef.current
@@ -1255,9 +1264,18 @@ export default function App() {
       if (current) {
         correctionAbortRef.current?.abort()
         correctionAbortRef.current = null
+        pendingAiHighlightRef.current = null
         setAiCorrection({ status: "idle" })
         return false
       }
+      const currentEditor = editorRef.current
+      pendingAiHighlightRef.current =
+        currentEditor && !currentEditor.state.selection.empty
+          ? {
+              from: currentEditor.state.selection.from,
+              to: currentEditor.state.selection.to,
+            }
+          : null
       setAiPanelPosition(getAiPanelPosition())
       return true
     })

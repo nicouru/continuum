@@ -3,10 +3,10 @@ import type { CorrectionSuggestion, CorrectionSuggestionStatus } from "./types"
 
 function nextSuggestionId() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID()
+    return `correction-${crypto.randomUUID()}`
   }
 
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  return `correction-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
 export function createCorrectionSuggestions(
@@ -30,10 +30,6 @@ export function shiftSuggestionOffsets(
   appliedOriginalLength: number,
   lengthDelta: number,
 ): CorrectionSuggestion[] {
-  if (lengthDelta === 0) {
-    return suggestions
-  }
-
   const appliedEnd = appliedOffset + appliedOriginalLength
 
   return suggestions.map((suggestion) => {

@@ -208,6 +208,33 @@ describe("shiftSuggestionOffsets", () => {
     })
   })
 
+  it("marks overlap stale even when the applied correction keeps the same length", () => {
+    const suggestions = [
+      {
+        id: "applied-word",
+        original: "esta",
+        originalLength: "esta".length,
+        originalOffset: 0,
+        replacement: "está",
+        status: "applied" as const,
+      },
+      {
+        id: "inside-word",
+        original: "ta",
+        originalLength: "ta".length,
+        originalOffset: 2,
+        replacement: "tá",
+        status: "pending" as const,
+      },
+    ]
+
+    const shifted = shiftSuggestionOffsets(suggestions, 0, "esta".length, 0)
+
+    expect(shifted.find((item) => item.id === "inside-word")).toMatchObject({
+      status: "stale",
+    })
+  })
+
   it("marks only mismatched pending suggestions stale", () => {
     const suggestions = [
       {
@@ -372,6 +399,7 @@ describe("createCorrectionSuggestions", () => {
 
     expect(suggestions).toHaveLength(1)
     expect(suggestions[0]?.id).toBeTruthy()
+    expect(suggestions[0]?.id).toMatch(/^correction-/)
     expect(suggestions[0]?.id).not.toMatch(/^correction-\d+$/)
   })
 })
