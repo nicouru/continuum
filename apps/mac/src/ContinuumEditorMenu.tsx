@@ -228,6 +228,7 @@ export function ContinuumEditorMenu({
     if (event.button !== 0 || (event.target as HTMLElement).closest("button")) {
       return
     }
+    event.preventDefault()
     dragStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
