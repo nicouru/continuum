@@ -10,6 +10,7 @@ import {
 } from "react"
 import { createContinuumStarterKit } from "./editor-starter-kit"
 import { adminTipTapExtensions } from "./extensions"
+import { AiSelectionHighlightExtension } from "./ai-selection-highlight"
 import { normalizeEditorIdentity } from "./editor-identity"
 import { serializeTipTapClipboardNodesToPlainText } from "./tiptap-clipboard"
 import {
@@ -140,6 +141,7 @@ export function ContinuumEditor({
     extensions: [
       createContinuumStarterKit(),
       ...adminTipTapExtensions,
+      AiSelectionHighlightExtension,
       Placeholder.configure({ placeholder: "Escribí acá..." }),
     ],
     immediatelyRender: false,

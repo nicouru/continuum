@@ -1,5 +1,10 @@
 export { adminTipTapExtensions } from "./extensions"
 export {
+  AiSelectionHighlightExtension,
+  aiSelectionHighlightPluginKey,
+  type AiSelectionHighlightRange,
+} from "./ai-selection-highlight"
+export {
   normalizeEditorIdentity,
   syncReferenceInsertLabels,
   makeId,

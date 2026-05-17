@@ -35,6 +35,7 @@ import {
   removeCitationFromSelection,
   separateAphorismFromCurrentBlock,
   unmarkCurrentBlockAsAphorism,
+  aiSelectionHighlightPluginKey,
   type ContinuumCitationClickDetails,
   type ContinuumEditorPayload,
   type SelectionPlainTextMap,
@@ -1202,12 +1203,41 @@ export default function App() {
     currentEditor.chain().focus().insertContent(word).run()
   }, [])
 
+  const dispatchAiSelectionHighlight = useCallback(
+    (range: { from: number; to: number } | null) => {
+      const editor = editorRef.current
+      if (!editor) return
+      editor.view.dispatch(
+        editor.state.tr.setMeta(aiSelectionHighlightPluginKey, range),
+      )
+    },
+    [],
+  )
+
   const closeAiPanel = useCallback(() => {
     correctionAbortRef.current?.abort()
     correctionAbortRef.current = null
     setAiPanelOpen(false)
     setAiCorrection({ status: "idle" })
   }, [])
+
+  // Keep the AI selection highlight in sync with the panel open state.
+  // When the panel opens, paint the current editor selection so it stays visible
+  // even after the user clicks into the panel and the editor loses focus.
+  // When the panel closes the decoration is cleared. Position mapping in the
+  // ProseMirror plugin keeps the range valid across corrections applied to the doc.
+  useEffect(() => {
+    if (!aiPanelOpen) {
+      dispatchAiSelectionHighlight(null)
+      return
+    }
+    const editor = editorRef.current
+    if (!editor) return
+    const { from, to } = editor.state.selection
+    if (from < to) {
+      dispatchAiSelectionHighlight({ from, to })
+    }
+  }, [aiPanelOpen, dispatchAiSelectionHighlight])
 
   const handleSaveOpenAiApiKey = useCallback(async (apiKey: string) => {
     const nextApiKey = apiKey.trim()
@@ -1243,6 +1273,14 @@ export default function App() {
       setAiCorrection({ status: "error", message: identity.reason })
       return
     }
+
+    // Update the highlight to match the current correction range. This handles
+    // the case where the user re-selected a different range while the panel was
+    // already open before re-running the correction.
+    dispatchAiSelectionHighlight({
+      from: identity.map.selectionFrom,
+      to: identity.map.selectionTo,
+    })
 
     const cached = findCorrectionSession(aiCorrectionSessionsRef.current, identity.key)
 
@@ -1323,7 +1361,7 @@ export default function App() {
         correctionAbortRef.current = null
       }
     }
-  }, [correctionProvider, persistAiCorrectionState])
+  }, [correctionProvider, dispatchAiSelectionHighlight, persistAiCorrectionState])
 
   const updateSuggestionInCorrectionState = useCallback(
     (
