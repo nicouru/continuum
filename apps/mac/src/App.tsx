@@ -65,7 +65,7 @@ import {
   writeEmergencyDraft,
 } from "./emergency-draft"
 import type { AsyncSqlNoteRepository } from "./note-repository/async-sql-note-repository"
-import { readPreferences, writePreferences } from "./preferences"
+import { readPreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
 import {
   ContinuumEditorMenu,
@@ -110,11 +110,12 @@ import {
   useFloatingPanelLayout,
 } from "./use-floating-panel-layout"
 import { useAiSelectionHighlight } from "./use-ai-selection-highlight"
+import {
+  clampSidebarWidth,
+  useContinuumPreferencesState,
+} from "./use-continuum-preferences-state"
 import "./App.css"
 
-const SIDEBAR_MIN_WIDTH = 250
-const SIDEBAR_MAX_WIDTH = 460
-const SIDEBAR_DEFAULT_WIDTH = 320
 // Cmd+Shift+8 toggles the left AI correction panel.
 const AI_CORRECTION_SHORTCUT_CODE = "Digit8"
 
@@ -141,10 +142,6 @@ const MONTHS_ES = [
   "Noviembre",
   "Diciembre",
 ]
-
-function clampSidebarWidth(value: number) {
-  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(value, SIDEBAR_MAX_WIDTH))
-}
 
 function formatDiaryDate(value: string) {
   const [year, month, day] = value.split("-").map(Number)
@@ -643,10 +640,20 @@ export default function App() {
   const [loginSubmitting, setLoginSubmitting] = useState(false)
   const [creatingNote, setCreatingNote] = useState(false)
 
-  const [appearanceMode, setAppearanceMode] = useState<"dark" | "light">("dark")
-  const [openAiApiKey, setOpenAiApiKey] = useState("")
-  const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
+  const {
+    appearanceMode,
+    applyPreferences,
+    commitSidebarWidth,
+    handleClearOpenAiApiKey,
+    handleSaveOpenAiApiKey,
+    handleSetAppearanceMode,
+    handleToggleSidebar,
+    openAiApiKey,
+    saveLastOpenedNoteId,
+    setSidebarWidth,
+    sidebarVisible,
+    sidebarWidth,
+  } = useContinuumPreferencesState()
   const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
   const [newlyCreatedNoteId, setNewlyCreatedNoteId] = useState<string | null>(null)
   const [noteIdToFocusOnLoad, setNoteIdToFocusOnLoad] = useState<string | null>(null)
@@ -1135,17 +1142,6 @@ export default function App() {
     setAiCorrection({ status: "idle" })
   }, [clearPendingAiSelectionHighlight])
 
-  const handleSaveOpenAiApiKey = useCallback(async (apiKey: string) => {
-    const nextApiKey = apiKey.trim()
-    setOpenAiApiKey(nextApiKey)
-    await writePreferences({ openAiApiKey: nextApiKey })
-  }, [])
-
-  const handleClearOpenAiApiKey = useCallback(async () => {
-    setOpenAiApiKey("")
-    await writePreferences({ openAiApiKey: null })
-  }, [])
-
   const toggleAiPanel = useCallback(() => {
     setAiPanelOpen((current) => {
       if (current) {
@@ -1533,10 +1529,7 @@ export default function App() {
         }
         setRepo(nextRepo)
         setDeviceId(devId)
-        setAppearanceMode(prefs.appearanceMode)
-        setOpenAiApiKey(prefs.openAiApiKey ?? "")
-        setSidebarVisible(prefs.sidebarVisible)
-        setSidebarWidth(clampSidebarWidth(prefs.sidebarWidth))
+        applyPreferences(prefs)
         setAuthSession(session)
         setAuthLoaded(true)
         step = "leer biblioteca local"
@@ -1600,7 +1593,7 @@ export default function App() {
     return () => {
       active = false
     }
-  }, [])
+  }, [applyPreferences])
 
   useEffect(() => {
     if (!repo || !authSession) {
@@ -1689,11 +1682,11 @@ export default function App() {
         setFullNote(note)
       }
     })
-    void writePreferences({ lastOpenedNoteId: selectedId })
+    saveLastOpenedNoteId(selectedId)
     return () => {
       cancelled = true
     }
-  }, [repo, selectedId])
+  }, [repo, saveLastOpenedNoteId, selectedId])
 
   useEffect(() => {
     if (!fullNote) {
@@ -1912,17 +1905,6 @@ export default function App() {
     [scheduleAutosave],
   )
 
-  const handleToggleSidebar = () => {
-    const next = !sidebarVisible
-    setSidebarVisible(next)
-    void writePreferences({ sidebarVisible: next })
-  }
-
-  const handleSetAppearanceMode = (value: "dark" | "light") => {
-    setAppearanceMode(value)
-    void writePreferences({ appearanceMode: value })
-  }
-
   const handleSidebarResizeMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
     const startX = event.clientX
@@ -1934,9 +1916,7 @@ export default function App() {
     }
 
     const handleUp = (upEvent: MouseEvent) => {
-      const nextWidth = clampSidebarWidth(startWidth + upEvent.clientX - startX)
-      setSidebarWidth(nextWidth)
-      void writePreferences({ sidebarWidth: nextWidth })
+      commitSidebarWidth(startWidth + upEvent.clientX - startX)
       document.body.classList.remove("continuum-sidebar-is-resizing")
       window.removeEventListener("mousemove", handleMove)
       window.removeEventListener("mouseup", handleUp)
