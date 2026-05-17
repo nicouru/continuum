@@ -69,7 +69,6 @@ import { readPreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
 import {
   ContinuumEditorMenu,
-  type ContinuumEditorMenuLexicalLookup,
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
 import {
@@ -84,13 +83,8 @@ import {
   type CorrectionSessionRecord,
   type CorrectionSuggestion,
 } from "@continuum/correction"
-import {
-  LexicalLookupError,
-  normalizeSingleSelectedWord,
-} from "@continuum/lexical"
 import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
-import { createContinuumLexicalProvider } from "./lexical-client"
 import {
   ContinuumAiPanel,
   type ContinuumAiPanelCorrectionState,
@@ -114,6 +108,7 @@ import {
   clampSidebarWidth,
   useContinuumPreferencesState,
 } from "./use-continuum-preferences-state"
+import { useLexicalLookup } from "./use-lexical-lookup"
 import "./App.css"
 
 // Cmd+Shift+8 toggles the left AI correction panel.
@@ -174,16 +169,6 @@ function bootstrapErrorMessage(error: unknown): string {
   }
   const fallback = String(error)
   return fallback === "[object Object]" ? "No se pudo abrir la base local." : fallback
-}
-
-function lexicalErrorMessage(error: unknown): string {
-  if (error instanceof LexicalLookupError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "No se pudo consultar la fuente lexical."
 }
 
 function correctionErrorMessage(error: unknown): string {
@@ -687,8 +672,6 @@ export default function App() {
   const [aiCorrection, setAiCorrection] = useState<ContinuumAiPanelCorrectionState>({
     status: "idle",
   })
-  const [lexicalLookup, setLexicalLookup] =
-    useState<ContinuumEditorMenuLexicalLookup | null>(null)
   const [citationPreview, setCitationPreview] = useState<{
     citationId: string
     left: number
@@ -709,11 +692,9 @@ export default function App() {
   const editorRef = useRef<Editor | null>(null)
   const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
-  const lexicalAbortRef = useRef<AbortController | null>(null)
   const correctionAbortRef = useRef<AbortController | null>(null)
   const aiCorrectionSessionsRef = useRef<CorrectionSessionRecord[]>([])
   const aiCorrectionSessionSaveTimerRef = useRef<number | undefined>(undefined)
-  const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
 
@@ -731,9 +712,17 @@ export default function App() {
   })
   const { getAiPanelPosition, getEditorMenuPosition } =
     useFloatingPanelLayout(mainRef)
+  const {
+    clearLexicalLookup,
+    lexicalLookup,
+    startLexicalLookupFromSelection,
+  } = useLexicalLookup({
+    editorRef,
+    editorRevision,
+    isMenuOpen: editorMenu.isOpen,
+  })
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
-  const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
   const correctionProvider = useMemo(
     () => createContinuumCorrectionProvider(openAiApiKey),
     [openAiApiKey],
@@ -824,7 +813,6 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      lexicalAbortRef.current?.abort()
       correctionAbortRef.current?.abort()
       if (aiCorrectionSessionSaveTimerRef.current !== undefined) {
         window.clearTimeout(aiCorrectionSessionSaveTimerRef.current)
@@ -962,50 +950,6 @@ export default function App() {
     syncAiCorrectionWithSelection,
   ])
 
-  const clearLexicalLookup = useCallback(() => {
-    lexicalAbortRef.current?.abort()
-    lexicalAbortRef.current = null
-    lexicalRequestIdRef.current += 1
-    setLexicalLookup(null)
-  }, [])
-
-  const startLexicalLookupFromSelection = useCallback(() => {
-    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
-
-    lexicalAbortRef.current?.abort()
-    lexicalRequestIdRef.current += 1
-
-    if (!term) {
-      lexicalAbortRef.current = null
-      setLexicalLookup(null)
-      return
-    }
-
-    const requestId = lexicalRequestIdRef.current
-    const controller = new AbortController()
-    lexicalAbortRef.current = controller
-    setLexicalLookup({ status: "loading", term })
-
-    lexicalProvider
-      .lookup(term, { signal: controller.signal })
-      .then((result) => {
-        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
-          return
-        }
-        setLexicalLookup({ result, status: "ready", term })
-      })
-      .catch((error: unknown) => {
-        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
-          return
-        }
-        setLexicalLookup({
-          message: lexicalErrorMessage(error),
-          status: "error",
-          term,
-        })
-      })
-  }, [lexicalProvider])
-
   const openEditorMenuPanel = useCallback(() => {
     startLexicalLookupFromSelection()
     setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
@@ -1067,31 +1011,6 @@ export default function App() {
     selectedId,
     sidebarVisible,
     sidebarWidth,
-  ])
-
-  useEffect(() => {
-    if (!editorMenu.isOpen) {
-      return
-    }
-
-    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
-
-    if (!term) {
-      if (lexicalLookup) {
-        clearLexicalLookup()
-      }
-      return
-    }
-
-    if (lexicalLookup?.term !== term) {
-      startLexicalLookupFromSelection()
-    }
-  }, [
-    clearLexicalLookup,
-    editorMenu.isOpen,
-    editorRevision,
-    lexicalLookup,
-    startLexicalLookupFromSelection,
   ])
 
   const closeCitationPreview = useCallback(() => {
