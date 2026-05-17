@@ -3,6 +3,7 @@ import {
   buildCorrectionDiffChanges,
   createCorrectionSuggestions,
   parseOpenAiCorrectionResponseBody,
+  refreshCorrectionSuggestionStatuses,
   renderCorrectedPreview,
   shiftSuggestionOffsets,
   validateCorrectionModelResponse,
@@ -121,6 +122,83 @@ describe("shiftSuggestionOffsets", () => {
     expect(shifted.find((item) => item.id === second!.id)?.originalOffset).toBe(
       second!.originalOffset + lengthDelta,
     )
+  })
+
+  it("keeps later deletion corrections pending after an earlier deletion", () => {
+    const suggestions = [
+      {
+        id: "remove-sobre",
+        original: "sobre",
+        originalLength: "sobre".length,
+        originalOffset: 0,
+        replacement: "",
+        status: "pending" as const,
+      },
+      {
+        id: "esar",
+        original: "esar",
+        originalLength: "esar".length,
+        originalOffset: "sobre valorar ".length,
+        replacement: "estar",
+        status: "pending" as const,
+      },
+    ]
+
+    const shifted = shiftSuggestionOffsets(
+      suggestions.map((item) =>
+        item.id === "remove-sobre" ? { ...item, status: "applied" as const } : item,
+      ),
+      0,
+      "sobre".length,
+      -"sobre".length,
+    )
+    const currentText = " valorar esar"
+
+    expect(shifted.find((item) => item.id === "esar")).toMatchObject({
+      originalOffset: " valorar ".length,
+      status: "pending",
+    })
+    expect(refreshCorrectionSuggestionStatuses(shifted, currentText)).toMatchObject([
+      { id: "remove-sobre", status: "applied" },
+      { id: "esar", status: "pending" },
+    ])
+  })
+
+  it("marks only mismatched pending suggestions stale", () => {
+    const suggestions = [
+      {
+        id: "already-applied",
+        original: "esta",
+        originalLength: "esta".length,
+        originalOffset: 0,
+        replacement: "está",
+        status: "applied" as const,
+      },
+      {
+        id: "still-current",
+        original: "linea",
+        originalLength: "linea".length,
+        originalOffset: "está ".length,
+        replacement: "línea",
+        status: "pending" as const,
+      },
+      {
+        id: "changed-by-user",
+        original: "aser",
+        originalLength: "aser".length,
+        originalOffset: "está linea ".length,
+        replacement: "hacer",
+        status: "pending" as const,
+      },
+    ]
+
+    expect(
+      refreshCorrectionSuggestionStatuses(suggestions, "está linea hacer"),
+    ).toMatchObject([
+      { id: "already-applied", status: "applied" },
+      { id: "still-current", status: "pending" },
+      { id: "changed-by-user", status: "stale" },
+    ])
   })
 })
 

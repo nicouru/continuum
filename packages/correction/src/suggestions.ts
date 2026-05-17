@@ -58,6 +58,26 @@ export function shiftSuggestionOffsets(
   })
 }
 
+export function refreshCorrectionSuggestionStatuses(
+  suggestions: CorrectionSuggestion[],
+  currentText: string,
+): CorrectionSuggestion[] {
+  return suggestions.map((suggestion) => {
+    if (suggestion.status !== "pending") {
+      return suggestion
+    }
+
+    const currentFragment = currentText.slice(
+      suggestion.originalOffset,
+      suggestion.originalOffset + suggestion.originalLength,
+    )
+
+    return currentFragment === suggestion.original
+      ? suggestion
+      : { ...suggestion, status: "stale" as const }
+  })
+}
+
 export function renderCorrectedPreview(
   originalText: string,
   correctedText: string,

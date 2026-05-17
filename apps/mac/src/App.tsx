@@ -74,6 +74,7 @@ import {
 import {
   CorrectionError,
   createCorrectionSuggestions,
+  refreshCorrectionSuggestionStatuses,
   shiftSuggestionOffsets,
   type CorrectionSuggestion,
 } from "@continuum/correction"
@@ -720,7 +721,7 @@ export default function App() {
 
       const extraction = extractSelectionPlainTextMap(editorRef.current)
 
-      if (!extraction.ok || extraction.map.plainText !== current.originalText) {
+      if (!extraction.ok) {
         return {
           ...current,
           suggestions: current.suggestions.map((suggestion) =>
@@ -733,23 +734,12 @@ export default function App() {
 
       return {
         ...current,
+        originalText: extraction.map.plainText,
         map: extraction.map,
-        suggestions: current.suggestions.map((suggestion) => {
-          if (suggestion.status !== "pending") {
-            return suggestion
-          }
-
-          const fragment = extraction.map.plainText.slice(
-            suggestion.originalOffset,
-            suggestion.originalOffset + suggestion.originalLength,
-          )
-
-          if (fragment !== suggestion.original) {
-            return { ...suggestion, status: "stale" as const }
-          }
-
-          return suggestion
-        }),
+        suggestions: refreshCorrectionSuggestionStatuses(
+          current.suggestions,
+          extraction.map.plainText,
+        ),
       }
     })
   }, [])
@@ -1114,6 +1104,7 @@ export default function App() {
         return
       }
 
+      const baseSuggestions = aiCorrection.suggestions
       const result = applyCorrectionSuggestionToEditor(
         editorRef.current,
         aiCorrection.map,
@@ -1131,7 +1122,7 @@ export default function App() {
           const extraction = extractSelectionPlainTextMap(editorRef.current)
           const nextMap = extraction.ok ? extraction.map : current.map
           const updatedSuggestions = shiftSuggestionOffsets(
-            current.suggestions.map((item) =>
+            baseSuggestions.map((item) =>
               item.id === suggestionId ? { ...item, status: "applied" } : item,
             ),
             suggestion.originalOffset,
@@ -1141,8 +1132,15 @@ export default function App() {
 
           return {
             ...current,
+            originalText: extraction.ok ? nextMap.plainText : current.originalText,
             map: nextMap,
-            suggestions: updatedSuggestions,
+            suggestions: extraction.ok
+              ? refreshCorrectionSuggestionStatuses(updatedSuggestions, nextMap.plainText)
+              : updatedSuggestions.map((item) =>
+                  item.status === "pending"
+                    ? { ...item, status: "stale" as const }
+                    : item,
+                ),
           }
         })
         return
@@ -1211,8 +1209,12 @@ export default function App() {
       current.status === "ready"
         ? {
             ...current,
+            originalText: workingMap.plainText,
             map: workingMap,
-            suggestions: workingSuggestions,
+            suggestions: refreshCorrectionSuggestionStatuses(
+              workingSuggestions,
+              workingMap.plainText,
+            ),
           }
         : current,
     )

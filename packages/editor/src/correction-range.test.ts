@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
 import { Editor, Mark, Node } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
-import type { CorrectionSuggestion } from "@continuum/correction"
+import {
+  refreshCorrectionSuggestionStatuses,
+  shiftSuggestionOffsets,
+  type CorrectionSuggestion,
+} from "@continuum/correction"
 import {
   applyCorrectionSuggestionToEditor,
   canSafelyApplySuggestion,
@@ -363,6 +367,94 @@ describe("extractSelectionPlainTextMap", () => {
         attrs: { citationId: "citation-1", visibleNumber: "8" },
       },
     ])
+    editor.destroy()
+  })
+
+  it("can apply multiple suggestions one by one after text length changes", () => {
+    const editor = makeParagraphEditor(["sobre valorar esas esar"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection({ from: range!.from, to: range!.to })
+
+    const initialExtraction = extractSelectionPlainTextMap(editor)
+    expect(initialExtraction.ok).toBe(true)
+    if (!initialExtraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    let workingMap = initialExtraction.map
+    let suggestions: CorrectionSuggestion[] = [
+      {
+        id: "remove-sobre",
+        original: "sobre",
+        originalLength: "sobre".length,
+        originalOffset: 0,
+        replacement: "",
+        status: "pending",
+      },
+      {
+        id: "valorar",
+        original: "valorar",
+        originalLength: "valorar".length,
+        originalOffset: "sobre ".length,
+        replacement: "sobrevalorar",
+        status: "pending",
+      },
+      {
+        id: "esas",
+        original: "esas",
+        originalLength: "esas".length,
+        originalOffset: "sobre valorar ".length,
+        replacement: "esa",
+        status: "pending",
+      },
+      {
+        id: "esar",
+        original: "esar",
+        originalLength: "esar".length,
+        originalOffset: "sobre valorar esas ".length,
+        replacement: "estar",
+        status: "pending",
+      },
+    ]
+
+    const first = suggestions[0]!
+    expect(applyCorrectionSuggestionToEditor(editor, workingMap, first)).toEqual({
+      status: "applied",
+    })
+
+    suggestions = shiftSuggestionOffsets(
+      suggestions.map((item) =>
+        item.id === first.id ? { ...item, status: "applied" } : item,
+      ),
+      first.originalOffset,
+      first.originalLength,
+      first.replacement.length - first.originalLength,
+    )
+
+    const afterFirst = extractSelectionPlainTextMap(editor)
+    expect(afterFirst.ok).toBe(true)
+    if (!afterFirst.ok) {
+      editor.destroy()
+      return
+    }
+
+    workingMap = afterFirst.map
+    suggestions = refreshCorrectionSuggestionStatuses(suggestions, workingMap.plainText)
+
+    expect(workingMap.plainText).toBe(" valorar esas esar")
+    expect(suggestions.map((item) => [item.id, item.status])).toEqual([
+      ["remove-sobre", "applied"],
+      ["valorar", "pending"],
+      ["esas", "pending"],
+      ["esar", "pending"],
+    ])
+
+    const second = suggestions.find((item) => item.id === "valorar")!
+    expect(applyCorrectionSuggestionToEditor(editor, workingMap, second)).toEqual({
+      status: "applied",
+    })
+
     editor.destroy()
   })
 })

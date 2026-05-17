@@ -19,6 +19,7 @@ export {
 export { CORRECTION_RESPONSE_JSON_SCHEMA } from "./schema"
 export {
   createCorrectionSuggestions,
+  refreshCorrectionSuggestionStatuses,
   renderCorrectedPreview,
   shiftSuggestionOffsets,
 } from "./suggestions"
