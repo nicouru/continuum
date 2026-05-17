@@ -19,6 +19,7 @@ import {
   convertMarkdownInlineMath,
   convertSelectionToReferenceInsert,
   filterReferences,
+  formatReferenceLabel,
   getActiveBlockDetails,
   getActiveCitationDetails,
   getActiveReferenceInsertDetails,
@@ -30,6 +31,7 @@ import {
   removeCitationFromSelection,
   separateAphorismFromCurrentBlock,
   unmarkCurrentBlockAsAphorism,
+  type ContinuumCitationClickDetails,
   type ContinuumEditorPayload,
   type TipTapJsonNode,
 } from "@continuum/editor"
@@ -504,6 +506,11 @@ export default function App() {
     x: 0,
     y: 0,
   })
+  const [citationPreview, setCitationPreview] = useState<{
+    citationId: string
+    left: number
+    top: number
+  } | null>(null)
   const [noteMenu, setNoteMenu] = useState<{
     isOpen: boolean
     noteIds: string[]
@@ -618,6 +625,10 @@ export default function App() {
     setEditorMenu((current) => ({ ...current, isOpen: false }))
   }, [])
 
+  const closeCitationPreview = useCallback(() => {
+    setCitationPreview(null)
+  }, [])
+
   const closeNoteMenu = useCallback(() => {
     setNoteMenu((current) => ({ ...current, isOpen: false, noteIds: [] }))
   }, [])
@@ -627,21 +638,21 @@ export default function App() {
       event.preventDefault()
       event.stopPropagation()
       closeNoteMenu()
+      closeCitationPreview()
       setSidebarSelectionFocus(false)
       openEditorMenuAt(event.clientX, event.clientY)
     },
-    [closeNoteMenu, openEditorMenuAt],
+    [closeCitationPreview, closeNoteMenu, openEditorMenuAt],
   )
 
   const handleCitationClick = useCallback(
-    (event: ReactMouseEvent<HTMLElement>) => {
-      event.preventDefault()
-      event.stopPropagation()
+    (details: ContinuumCitationClickDetails) => {
       closeNoteMenu()
+      closeEditorMenu()
       setSidebarSelectionFocus(false)
-      openEditorMenuAt(event.clientX, event.clientY)
+      setCitationPreview(details)
     },
-    [closeNoteMenu, openEditorMenuAt],
+    [closeEditorMenu, closeNoteMenu],
   )
 
   const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
@@ -653,6 +664,11 @@ export default function App() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && noteMenu.isOpen) {
         closeNoteMenu()
+        return
+      }
+
+      if (event.key === "Escape" && citationPreview) {
+        closeCitationPreview()
         return
       }
 
@@ -687,7 +703,9 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [
     closeEditorMenu,
+    closeCitationPreview,
     closeNoteMenu,
+    citationPreview,
     editor,
     editorMenu.isOpen,
     noteMenu.isOpen,
@@ -1869,6 +1887,11 @@ export default function App() {
       ) : null}
 
       <main className="continuum-main" ref={mainRef}>
+        <CitationPreviewPopover
+          activeDraft={activeDraft}
+          citationPreview={citationPreview}
+          onClose={closeCitationPreview}
+        />
         <ContinuumEditorMenu
           activeCitation={activeCitation}
           activeReferenceInsert={activeReferenceInsert}
@@ -2046,5 +2069,63 @@ export default function App() {
         />
       </main>
     </div>
+  )
+}
+
+function CitationPreviewPopover({
+  activeDraft,
+  citationPreview,
+  onClose,
+}: {
+  activeDraft: StructuredNoteDraft | null
+  citationPreview: {
+    citationId: string
+    left: number
+    top: number
+  } | null
+  onClose: () => void
+}) {
+  if (!activeDraft || !citationPreview) {
+    return null
+  }
+
+  const citation = activeDraft.citations.find(
+    (item) => item.id === citationPreview.citationId,
+  )
+  if (!citation) {
+    return null
+  }
+
+  const reference = citation.referenceId
+    ? activeDraft.references.find((item) => item.id === citation.referenceId)
+    : undefined
+
+  return (
+    <aside
+      aria-live="polite"
+      className="continuum-citation-preview"
+      style={{
+        left: citationPreview.left,
+        top: citationPreview.top,
+      }}
+    >
+      <div className="continuum-citation-preview-header">
+        <span>Referencia</span>
+        <button aria-label="Cerrar referencia" onClick={onClose} type="button">
+          x
+        </button>
+      </div>
+      {citation.anchor.selectedText ? (
+        <small>{citation.anchor.selectedText}</small>
+      ) : null}
+      {reference ? (
+        <>
+          <strong>{formatReferenceLabel(reference)}</strong>
+          {reference.body ? <p>{reference.body}</p> : null}
+        </>
+      ) : (
+        <p>La cita todavia no tiene referencia asociada.</p>
+      )}
+    </aside>
   )
 }

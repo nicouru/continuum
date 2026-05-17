@@ -25,6 +25,12 @@ export type ContinuumEditorPayload = {
   tiptapJson: TipTapJsonNode
 }
 
+export type ContinuumCitationClickDetails = {
+  citationId: string
+  left: number
+  top: number
+}
+
 export type ContinuumEditorProps = {
   noteId: string
   initialDraft: StructuredNoteDraft
@@ -34,7 +40,7 @@ export type ContinuumEditorProps = {
   onTitleChange: (value: string) => void
   onWrittenAtChange: (value: string) => void
   onPayload: (payload: ContinuumEditorPayload) => void
-  onCitationClick?: MouseEventHandler<HTMLDivElement>
+  onCitationClick?: (details: ContinuumCitationClickDetails) => void
   onEditorContextMenu?: MouseEventHandler<HTMLDivElement>
   onEditorFocus?: FocusEventHandler<HTMLDivElement>
   focusOnLoad?: boolean
@@ -224,7 +230,12 @@ export function ContinuumEditor({
     }
 
     editor.chain().focus().setTextSelection(range).run()
-    onCitationClick?.(event)
+
+    const rect = citationElement.getBoundingClientRect()
+    const maxLeft = window.innerWidth - 18
+    const left = Math.max(18, Math.min(rect.left + rect.width / 2, maxLeft))
+    const top = Math.max(18, Math.min(rect.bottom + 8, window.innerHeight - 170))
+    onCitationClick?.({ citationId, left, top })
   }
 
   return (

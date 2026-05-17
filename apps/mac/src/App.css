@@ -981,6 +981,80 @@ button:disabled {
   width: 1.5em;
 }
 
+.continuum-citation-preview {
+  position: fixed;
+  z-index: 80;
+  left: 0;
+  top: 0;
+  display: grid;
+  gap: 7px;
+  width: min(320px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  border: 1px solid var(--continuum-editor-reference-border);
+  border-radius: 6px;
+  background: var(--continuum-editor-page-bg);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.28);
+  color: var(--continuum-editor-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
+    sans-serif;
+  font-size: 12px;
+  line-height: 1.3;
+  padding: 9px 11px;
+  transform: translateX(-50%);
+}
+
+.continuum-shell[data-theme="light"] .continuum-citation-preview {
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.18);
+}
+
+.continuum-citation-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.continuum-citation-preview-header span {
+  color: var(--continuum-editor-muted);
+  font-size: 11px;
+}
+
+.continuum-citation-preview-header button {
+  border: 0;
+  background: transparent;
+  color: var(--continuum-editor-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+}
+
+.continuum-citation-preview-header button:hover {
+  color: var(--continuum-editor-text);
+}
+
+.continuum-citation-preview strong {
+  color: var(--continuum-editor-text);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.continuum-citation-preview small,
+.continuum-citation-preview p {
+  color: var(--continuum-editor-soft);
+  font-size: 12px;
+  margin: 0;
+}
+
+.continuum-citation-preview small {
+  color: var(--continuum-editor-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .continuum-menu-backdrop {
   position: fixed;
   inset: 0;

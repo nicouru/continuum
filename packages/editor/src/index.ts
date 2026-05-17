@@ -61,6 +61,7 @@ export {
 export {
   ContinuumEditor,
   continuumBootstrapPrototype,
+  type ContinuumCitationClickDetails,
   type ContinuumEditorPayload,
   type ContinuumEditorProps,
 } from "./ContinuumEditor"
