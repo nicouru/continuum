@@ -98,13 +98,11 @@ import {
   useFloatingPanelLayout,
 } from "./use-floating-panel-layout"
 import { useAiSelectionHighlight } from "./use-ai-selection-highlight"
-import {
-  clampSidebarWidth,
-  useContinuumPreferencesState,
-} from "./use-continuum-preferences-state"
+import { useContinuumPreferencesState } from "./use-continuum-preferences-state"
 import { useContinuumKeyboardShortcuts } from "./use-continuum-keyboard-shortcuts"
 import { useLexicalLookup } from "./use-lexical-lookup"
 import { useAiCorrectionSessions } from "./use-ai-correction-sessions"
+import { useSidebarResize } from "./use-sidebar-resize"
 import "./App.css"
 
 type AiCorrectionReadyState = Extract<
@@ -698,6 +696,11 @@ export default function App() {
     persistAiCorrectionState,
     sessionRevision: aiCorrectionSessionRevision,
   } = useAiCorrectionSessions()
+  const handleSidebarResizeMouseDown = useSidebarResize({
+    commitSidebarWidth,
+    setSidebarWidth,
+    sidebarWidth,
+  })
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const correctionProvider = useMemo(
@@ -1710,27 +1713,6 @@ export default function App() {
     },
     [scheduleAutosave],
   )
-
-  const handleSidebarResizeMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = sidebarWidth
-    document.body.classList.add("continuum-sidebar-is-resizing")
-
-    const handleMove = (moveEvent: MouseEvent) => {
-      setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX))
-    }
-
-    const handleUp = (upEvent: MouseEvent) => {
-      commitSidebarWidth(startWidth + upEvent.clientX - startX)
-      document.body.classList.remove("continuum-sidebar-is-resizing")
-      window.removeEventListener("mousemove", handleMove)
-      window.removeEventListener("mouseup", handleUp)
-    }
-
-    window.addEventListener("mousemove", handleMove)
-    window.addEventListener("mouseup", handleUp)
-  }
 
   const handleSelectNoteFromList = (
     event: ReactMouseEvent<HTMLButtonElement>,
