@@ -1,7 +1,7 @@
 import type { CorrectionSuggestion, CorrectionUsageMetadata } from "@continuum/correction"
 import { renderCorrectedPreview } from "@continuum/correction"
 import type { SelectionPlainTextMap } from "@continuum/editor"
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react"
 
 export type ContinuumAiPanelCorrectionState =
   | { status: "idle" }
@@ -32,6 +32,9 @@ type ContinuumAiPanelProps = {
   onClearApiKey: () => Promise<void> | void
   onSaveApiKey: (apiKey: string) => Promise<void> | void
   selectionSummary: string
+  width: number
+  x: number
+  y: number
 }
 
 function suggestionLabel(suggestion: CorrectionSuggestion) {
@@ -71,6 +74,9 @@ export function ContinuumAiPanel({
   onRunCorrection,
   onSaveApiKey,
   selectionSummary,
+  width,
+  x,
+  y,
 }: ContinuumAiPanelProps) {
   const [apiKeyInput, setApiKeyInput] = useState("")
   const [apiKeyExpanded, setApiKeyExpanded] = useState(!configured)
@@ -88,6 +94,12 @@ export function ContinuumAiPanel({
   }
 
   const ready = correction.status === "ready"
+  const style = {
+    left: x,
+    top: y,
+    width,
+  } satisfies CSSProperties
+
   const handleSaveApiKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const nextApiKey = apiKeyInput.trim()
@@ -129,7 +141,11 @@ export function ContinuumAiPanel({
   }
 
   return (
-    <aside className="continuum-ai-panel" aria-label="Panel de corrección con IA">
+    <aside
+      className="continuum-ai-panel"
+      aria-label="Panel de corrección con IA"
+      style={style}
+    >
       <header className="continuum-ai-panel-header">
         <div>
           <strong>Corrección</strong>

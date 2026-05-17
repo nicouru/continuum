@@ -98,9 +98,17 @@ const SIDEBAR_MIN_WIDTH = 250
 const SIDEBAR_MAX_WIDTH = 460
 const SIDEBAR_DEFAULT_WIDTH = 320
 const EDITOR_MENU_WIDTH = 360
+const AI_PANEL_WIDTH = 320
+const FLOATING_PANEL_MIN_WIDTH = 240
 const EDITOR_MENU_MARGIN = 28
 // Cmd+Shift+8 toggles the left AI correction panel.
 const AI_CORRECTION_SHORTCUT_CODE = "Digit8"
+
+type FloatingPanelPosition = {
+  width: number
+  x: number
+  y: number
+}
 
 const MONTHS_ES = [
   "Enero",
@@ -552,10 +560,16 @@ export default function App() {
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
     isOpen: false,
+    width: EDITOR_MENU_WIDTH,
     x: 0,
     y: 0,
   })
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiPanelPosition, setAiPanelPosition] = useState<FloatingPanelPosition>({
+    width: AI_PANEL_WIDTH,
+    x: EDITOR_MENU_MARGIN,
+    y: EDITOR_MENU_MARGIN,
+  })
   const [aiCorrection, setAiCorrection] = useState<ContinuumAiPanelCorrectionState>({
     status: "idle",
   })
@@ -748,32 +762,67 @@ export default function App() {
     refreshAiCorrectionSuggestions()
   }, [aiCorrection.status, aiPanelOpen, editorRevision, refreshAiCorrectionSuggestions])
 
-  const getEditorMenuPosition = useCallback(() => {
-    const menuWidth = Math.min(
-      EDITOR_MENU_WIDTH,
-      window.innerWidth - EDITOR_MENU_MARGIN * 2,
-    )
-    const mainRect = mainRef.current?.getBoundingClientRect()
-    const editorRect = mainRef.current
-      ?.querySelector(".continuum-editor-surface .tiptap")
-      ?.getBoundingClientRect()
-    const fallbackX = window.innerWidth - menuWidth - EDITOR_MENU_MARGIN
-    const y = Math.max(EDITOR_MENU_MARGIN, mainRect?.top ?? EDITOR_MENU_MARGIN)
+  const getFloatingPanelPosition = useCallback(
+    (side: "left" | "right", preferredWidth: number): FloatingPanelPosition => {
+      const viewportWidth = window.innerWidth
+      const panelWidth = Math.min(
+        preferredWidth,
+        Math.max(FLOATING_PANEL_MIN_WIDTH, viewportWidth - EDITOR_MENU_MARGIN * 2),
+      )
+      const mainRect = mainRef.current?.getBoundingClientRect()
+      const editorRect = mainRef.current
+        ?.querySelector(".continuum-editor-surface .tiptap")
+        ?.getBoundingClientRect()
+      const y = Math.max(EDITOR_MENU_MARGIN, mainRect?.top ?? EDITOR_MENU_MARGIN)
 
-    if (!editorRect) {
-      return { x: fallbackX, y }
-    }
+      if (!editorRect) {
+        const x =
+          side === "right"
+            ? viewportWidth - panelWidth - EDITOR_MENU_MARGIN
+            : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
 
-    const rightSpaceStart = editorRect.right + EDITOR_MENU_MARGIN
-    const rightSpaceEnd = window.innerWidth - EDITOR_MENU_MARGIN
-    const rightSpaceWidth = rightSpaceEnd - rightSpaceStart
-    const x =
-      rightSpaceWidth >= menuWidth
-        ? rightSpaceStart + (rightSpaceWidth - menuWidth) / 2
-        : fallbackX
+        return { width: panelWidth, x, y }
+      }
 
-    return { x: Math.max(EDITOR_MENU_MARGIN, Math.min(x, fallbackX)), y }
-  }, [])
+      const availableStart =
+        side === "right"
+          ? editorRect.right + EDITOR_MENU_MARGIN
+          : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
+      const availableEnd =
+        side === "right"
+          ? viewportWidth - EDITOR_MENU_MARGIN
+          : editorRect.left - EDITOR_MENU_MARGIN
+      const availableWidth = availableEnd - availableStart
+
+      if (availableWidth > 0) {
+        const width = Math.max(
+          Math.min(preferredWidth, availableWidth),
+          Math.min(FLOATING_PANEL_MIN_WIDTH, availableWidth),
+        )
+        const x = availableStart + Math.max(0, (availableWidth - width) / 2)
+
+        return { width, x, y }
+      }
+
+      const x =
+        side === "right"
+          ? viewportWidth - panelWidth - EDITOR_MENU_MARGIN
+          : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
+
+      return { width: panelWidth, x, y }
+    },
+    [],
+  )
+
+  const getEditorMenuPosition = useCallback(
+    () => getFloatingPanelPosition("right", EDITOR_MENU_WIDTH),
+    [getFloatingPanelPosition],
+  )
+
+  const getAiPanelPosition = useCallback(
+    () => getFloatingPanelPosition("left", AI_PANEL_WIDTH),
+    [getFloatingPanelPosition],
+  )
 
   const clearLexicalLookup = useCallback(() => {
     lexicalAbortRef.current?.abort()
@@ -825,17 +874,25 @@ export default function App() {
   }, [getEditorMenuPosition, startLexicalLookupFromSelection])
 
   const toggleToolsPanel = useCallback(() => {
-    if (editorMenu.isOpen) {
+    if (editorMenu.isOpen || aiPanelOpen) {
       setEditorMenu((current) => ({ ...current, isOpen: false }))
+      correctionAbortRef.current?.abort()
+      correctionAbortRef.current = null
+      setAiPanelOpen(false)
+      setAiCorrection({ status: "idle" })
       clearLexicalLookup()
       return
     }
 
     startLexicalLookupFromSelection()
     setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
+    setAiPanelPosition(getAiPanelPosition())
+    setAiPanelOpen(true)
   }, [
+    aiPanelOpen,
     clearLexicalLookup,
     editorMenu.isOpen,
+    getAiPanelPosition,
     getEditorMenuPosition,
     startLexicalLookupFromSelection,
   ])
@@ -844,6 +901,35 @@ export default function App() {
     setEditorMenu((current) => ({ ...current, isOpen: false }))
     clearLexicalLookup()
   }, [clearLexicalLookup])
+
+  const refreshFloatingPanelPositions = useCallback(() => {
+    if (editorMenu.isOpen) {
+      setEditorMenu((current) =>
+        current.isOpen ? { ...current, ...getEditorMenuPosition() } : current,
+      )
+    }
+
+    if (aiPanelOpen) {
+      setAiPanelPosition(getAiPanelPosition())
+    }
+  }, [aiPanelOpen, editorMenu.isOpen, getAiPanelPosition, getEditorMenuPosition])
+
+  useEffect(() => {
+    if (!editorMenu.isOpen && !aiPanelOpen) {
+      return
+    }
+
+    refreshFloatingPanelPositions()
+    window.addEventListener("resize", refreshFloatingPanelPositions)
+    return () => window.removeEventListener("resize", refreshFloatingPanelPositions)
+  }, [
+    aiPanelOpen,
+    editorMenu.isOpen,
+    refreshFloatingPanelPositions,
+    selectedId,
+    sidebarVisible,
+    sidebarWidth,
+  ])
 
   useEffect(() => {
     if (!editorMenu.isOpen) {
@@ -936,9 +1022,10 @@ export default function App() {
         setAiCorrection({ status: "idle" })
         return false
       }
+      setAiPanelPosition(getAiPanelPosition())
       return true
     })
-  }, [])
+  }, [getAiPanelPosition])
 
   const handleRunAiCorrection = useCallback(async () => {
     const extraction = extractSelectionPlainTextMap(editorRef.current)
@@ -2371,25 +2458,28 @@ export default function App() {
           citationPreview={citationPreview}
           onClose={closeCitationPreview}
         />
+        <ContinuumAiPanel
+          canApplyAll={
+            aiCorrection.status === "ready" &&
+            canSafelyApplyAllSuggestions(aiCorrection.map, aiCorrection.suggestions)
+          }
+          configured={isCorrectionConfigured(openAiApiKey)}
+          correction={aiCorrection}
+          isOpen={aiPanelOpen}
+          onApplyAll={handleApplyAllAiSuggestions}
+          onApplySuggestion={handleApplyAiSuggestion}
+          onClearApiKey={handleClearOpenAiApiKey}
+          onClose={closeAiPanel}
+          onRunCorrection={handleRunAiCorrection}
+          onSaveApiKey={handleSaveOpenAiApiKey}
+          selectionSummary={aiSelectionSummary}
+          width={aiPanelPosition.width}
+          x={aiPanelPosition.x}
+          y={aiPanelPosition.y}
+        />
         <div className="continuum-main-workspace">
-          <ContinuumAiPanel
-            canApplyAll={
-              aiCorrection.status === "ready" &&
-              canSafelyApplyAllSuggestions(aiCorrection.map, aiCorrection.suggestions)
-            }
-            configured={isCorrectionConfigured(openAiApiKey)}
-            correction={aiCorrection}
-            isOpen={aiPanelOpen}
-            onApplyAll={handleApplyAllAiSuggestions}
-            onApplySuggestion={handleApplyAiSuggestion}
-            onClearApiKey={handleClearOpenAiApiKey}
-            onClose={closeAiPanel}
-            onRunCorrection={handleRunAiCorrection}
-            onSaveApiKey={handleSaveOpenAiApiKey}
-            selectionSummary={aiSelectionSummary}
-          />
           <div className="continuum-editor-column">
-        <ContinuumEditorMenu
+            <ContinuumEditorMenu
           activeCitation={activeCitation}
           activeReferenceInsert={activeReferenceInsert}
           appearanceMode={appearanceMode}
@@ -2476,6 +2566,7 @@ export default function App() {
           syncPendingCount={syncStatus?.pendingCount ?? 0}
           title={title}
           writtenAt={writtenAt}
+          width={editorMenu.width}
           x={editorMenu.x}
           y={editorMenu.y}
         />

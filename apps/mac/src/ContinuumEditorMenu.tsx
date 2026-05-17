@@ -12,7 +12,6 @@ import type {
 } from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
-const MENU_WIDTH = 360
 const VIEWPORT_MARGIN = 28
 type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
 
@@ -114,6 +113,7 @@ type ContinuumEditorMenuProps = {
   syncPendingCount: number
   title: string
   writtenAt: string
+  width: number
   x: number
   y: number
 }
@@ -174,6 +174,7 @@ export function ContinuumEditorMenu({
   syncPendingCount,
   title,
   writtenAt,
+  width,
   x,
   y,
 }: ContinuumEditorMenuProps) {
@@ -211,9 +212,9 @@ export function ContinuumEditorMenu({
 
     const { offsetHeight } = menuRef.current
     setMenuPosition((current) =>
-      clampMenuPosition(current.x, current.y, MENU_WIDTH, offsetHeight),
+      clampMenuPosition(current.x, current.y, width, offsetHeight),
     )
-  }, [isOpen, x, y])
+  }, [isOpen, width, x, y])
 
   if (!isOpen) {
     return null
@@ -222,6 +223,7 @@ export function ContinuumEditorMenu({
   const style = {
     left: menuPosition.x,
     top: menuPosition.y,
+    width,
   } satisfies CSSProperties
 
   const submitReference = (
