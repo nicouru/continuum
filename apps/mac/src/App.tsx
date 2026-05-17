@@ -102,12 +102,10 @@ import {
   clampSidebarWidth,
   useContinuumPreferencesState,
 } from "./use-continuum-preferences-state"
+import { useContinuumKeyboardShortcuts } from "./use-continuum-keyboard-shortcuts"
 import { useLexicalLookup } from "./use-lexical-lookup"
 import { useAiCorrectionSessions } from "./use-ai-correction-sessions"
 import "./App.css"
-
-// Cmd+Shift+8 toggles the left AI correction panel.
-const AI_CORRECTION_SHORTCUT_CODE = "Digit8"
 
 type AiCorrectionReadyState = Extract<
   ContinuumAiPanelCorrectionState,
@@ -1271,59 +1269,18 @@ export default function App() {
     setNoteMenu({ isOpen: true, noteIds, ...position })
   }, [])
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && noteMenu.isOpen) {
-        closeNoteMenu()
-        return
-      }
-
-      if (event.key === "Escape" && citationPreview) {
-        closeCitationPreview()
-        return
-      }
-
-      if (event.key === "Escape" && editorMenu.isOpen) {
-        closeEditorMenu()
-        return
-      }
-
-      if (event.key === "Escape" && aiPanelOpen) {
-        closeAiPanel()
-        return
-      }
-
-      if (
-        event.metaKey &&
-        event.shiftKey &&
-        (event.key === "8" || event.code === AI_CORRECTION_SHORTCUT_CODE)
-      ) {
-        event.preventDefault()
-        toggleAiPanel()
-        return
-      }
-
-      if (!event.metaKey || event.shiftKey || (event.key !== "9" && event.code !== "Digit9")) {
-        return
-      }
-      event.preventDefault()
-      toggleToolsPanel()
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [
+  useContinuumKeyboardShortcuts({
     aiPanelOpen,
+    citationPreviewOpen: Boolean(citationPreview),
+    editorMenuOpen: editorMenu.isOpen,
+    noteMenuOpen: noteMenu.isOpen,
     closeAiPanel,
-    closeEditorMenu,
     closeCitationPreview,
+    closeEditorMenu,
     closeNoteMenu,
-    citationPreview,
-    editorMenu.isOpen,
-    noteMenu.isOpen,
     toggleAiPanel,
     toggleToolsPanel,
-  ])
+  })
 
   useEffect(() => {
     const visibleIds = new Set(notes.map((note) => note.id))
