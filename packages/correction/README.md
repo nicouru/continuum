@@ -15,12 +15,12 @@ El texto seleccionado por el usuario **solo** va en `input` (rol `user`). Las in
 
 | Variable | Obligatoria | Default | Descripción |
 |----------|-------------|---------|-------------|
-| `VITE_OPENAI_API_KEY` | Sí (para usar IA) | — | Clave de API OpenAI |
+| `VITE_OPENAI_API_KEY` | No | — | Clave de API OpenAI para builds/dev. En la app Mac también puede cargarse desde el panel de corrección y se guarda localmente. |
 | `VITE_OPENAI_CORRECTION_MODEL` | No | `gpt-5.4-mini` | Modelo de la Responses API |
 | `VITE_OPENAI_PROMPT_CACHE_KEY` | No | `continuum-ai-correction-v1` | Clave estable para [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) |
 | `VITE_OPENAI_PROMPT_CACHE_RETENTION` | No | *(omitido)* | `in-memory` o `24h`; si falta o es inválido, se omite y OpenAI usa el default. Por compatibilidad, `in_memory` se normaliza a `in-memory`. |
 
-Configurá las variables en `apps/mac/.env` o en el entorno de build.
+Configurá las variables en `apps/mac/.env` o en el entorno de build. Para probar la app ya instalada, abrí el panel de corrección (`Cmd+Shift+8`) y pegá la API key en el cuadro de configuración local.
 
 ## Prompt caching
 

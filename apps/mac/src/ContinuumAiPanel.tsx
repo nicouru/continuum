@@ -1,6 +1,7 @@
 import type { CorrectionSuggestion, CorrectionUsageMetadata } from "@continuum/correction"
 import { renderCorrectedPreview } from "@continuum/correction"
 import type { SelectionPlainTextMap } from "@continuum/editor"
+import { useEffect, useState, type FormEvent } from "react"
 
 export type ContinuumAiPanelCorrectionState =
   | { status: "idle" }
@@ -28,6 +29,8 @@ type ContinuumAiPanelProps = {
   onApplySuggestion: (suggestionId: string) => void
   onClose: () => void
   onRunCorrection: () => void
+  onClearApiKey: () => Promise<void> | void
+  onSaveApiKey: (apiKey: string) => Promise<void> | void
   selectionSummary: string
 }
 
@@ -63,15 +66,68 @@ export function ContinuumAiPanel({
   isOpen,
   onApplyAll,
   onApplySuggestion,
+  onClearApiKey,
   onClose,
   onRunCorrection,
+  onSaveApiKey,
   selectionSummary,
 }: ContinuumAiPanelProps) {
+  const [apiKeyInput, setApiKeyInput] = useState("")
+  const [apiKeyExpanded, setApiKeyExpanded] = useState(!configured)
+  const [apiKeySaving, setApiKeySaving] = useState(false)
+  const [apiKeyMessage, setApiKeyMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!configured) {
+      setApiKeyExpanded(true)
+    }
+  }, [configured])
+
   if (!isOpen) {
     return null
   }
 
   const ready = correction.status === "ready"
+  const handleSaveApiKey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const nextApiKey = apiKeyInput.trim()
+
+    if (!nextApiKey) {
+      setApiKeyMessage("Pegá una API key válida.")
+      return
+    }
+
+    setApiKeySaving(true)
+    setApiKeyMessage(null)
+
+    try {
+      await onSaveApiKey(nextApiKey)
+      setApiKeyInput("")
+      setApiKeyExpanded(false)
+      setApiKeyMessage("API key guardada localmente.")
+    } catch {
+      setApiKeyMessage("No se pudo guardar la API key.")
+    } finally {
+      setApiKeySaving(false)
+    }
+  }
+
+  const handleClearApiKey = async () => {
+    setApiKeySaving(true)
+    setApiKeyMessage(null)
+
+    try {
+      await onClearApiKey()
+      setApiKeyInput("")
+      setApiKeyExpanded(true)
+      setApiKeyMessage("API key eliminada.")
+    } catch {
+      setApiKeyMessage("No se pudo eliminar la API key.")
+    } finally {
+      setApiKeySaving(false)
+    }
+  }
+
   return (
     <aside className="continuum-ai-panel" aria-label="Panel de corrección con IA">
       <header className="continuum-ai-panel-header">
@@ -92,6 +148,64 @@ export function ContinuumAiPanel({
       </section>
 
       <section className="continuum-ai-panel-section">
+        <div className="continuum-ai-panel-config-row">
+          <span className="continuum-ai-panel-label">OpenAI</span>
+          <button
+            type="button"
+            className="continuum-ai-panel-link-button"
+            onClick={() => {
+              setApiKeyExpanded((current) => !current)
+              setApiKeyMessage(null)
+            }}
+          >
+            {configured ? "Cambiar key" : "Configurar key"}
+          </button>
+        </div>
+        {apiKeyExpanded ? (
+          <form className="continuum-ai-panel-api-key-form" onSubmit={handleSaveApiKey}>
+            <input
+              type="password"
+              value={apiKeyInput}
+              onChange={(event) => setApiKeyInput(event.currentTarget.value)}
+              placeholder="sk-..."
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="OpenAI API key"
+            />
+            <div className="continuum-ai-panel-api-key-actions">
+              <button
+                type="submit"
+                className="continuum-ai-panel-secondary"
+                disabled={apiKeySaving}
+              >
+                Guardar
+              </button>
+              {configured ? (
+                <button
+                  type="button"
+                  className="continuum-ai-panel-secondary"
+                  disabled={apiKeySaving}
+                  onClick={handleClearApiKey}
+                >
+                  Quitar
+                </button>
+              ) : null}
+            </div>
+            <p className="continuum-ai-panel-hint">
+              Se guarda localmente en este Mac para probar la corrección.
+            </p>
+          </form>
+        ) : (
+          <p className="continuum-ai-panel-hint">
+            {configured ? "API key configurada." : "API key no configurada."}
+          </p>
+        )}
+        {apiKeyMessage ? (
+          <p className="continuum-ai-panel-hint">{apiKeyMessage}</p>
+        ) : null}
+      </section>
+
+      <section className="continuum-ai-panel-section">
         <button
           type="button"
           className="continuum-ai-panel-primary"
@@ -104,7 +218,7 @@ export function ContinuumAiPanel({
         </button>
         {!configured ? (
           <p className="continuum-ai-panel-hint">
-            Configurá <code>VITE_OPENAI_API_KEY</code> para habilitar la corrección.
+            Configurá una API key para habilitar la corrección.
           </p>
         ) : null}
       </section>

@@ -5,9 +5,11 @@ import {
   type CorrectionProvider,
 } from "@continuum/correction"
 
-export function createContinuumCorrectionProvider(): CorrectionProvider {
+export function createContinuumCorrectionProvider(apiKey?: string | null): CorrectionProvider {
+  const resolvedApiKey = apiKey?.trim() || import.meta.env.VITE_OPENAI_API_KEY?.trim()
+
   return new OpenAiCorrectionProvider({
-    apiKey: import.meta.env.VITE_OPENAI_API_KEY?.trim(),
+    apiKey: resolvedApiKey,
     model: import.meta.env.VITE_OPENAI_CORRECTION_MODEL?.trim(),
     promptCacheKey: import.meta.env.VITE_OPENAI_PROMPT_CACHE_KEY?.trim(),
     promptCacheRetention: import.meta.env.VITE_OPENAI_PROMPT_CACHE_RETENTION?.trim(),
@@ -15,6 +17,6 @@ export function createContinuumCorrectionProvider(): CorrectionProvider {
   })
 }
 
-export function isCorrectionConfigured() {
-  return Boolean(import.meta.env.VITE_OPENAI_API_KEY?.trim())
+export function isCorrectionConfigured(apiKey?: string | null) {
+  return Boolean(apiKey?.trim() || import.meta.env.VITE_OPENAI_API_KEY?.trim())
 }

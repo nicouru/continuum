@@ -523,6 +523,7 @@ export default function App() {
   const [creatingNote, setCreatingNote] = useState(false)
 
   const [appearanceMode, setAppearanceMode] = useState<"dark" | "light">("dark")
+  const [openAiApiKey, setOpenAiApiKey] = useState("")
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
   const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
@@ -591,7 +592,10 @@ export default function App() {
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
-  const correctionProvider = useMemo(() => createContinuumCorrectionProvider(), [])
+  const correctionProvider = useMemo(
+    () => createContinuumCorrectionProvider(openAiApiKey),
+    [openAiApiKey],
+  )
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
   const selectedNoteIdSet = useMemo(
@@ -913,6 +917,17 @@ export default function App() {
     setAiCorrection({ status: "idle" })
   }, [])
 
+  const handleSaveOpenAiApiKey = useCallback(async (apiKey: string) => {
+    const nextApiKey = apiKey.trim()
+    setOpenAiApiKey(nextApiKey)
+    await writePreferences({ openAiApiKey: nextApiKey })
+  }, [])
+
+  const handleClearOpenAiApiKey = useCallback(async () => {
+    setOpenAiApiKey("")
+    await writePreferences({ openAiApiKey: null })
+  }, [])
+
   const toggleAiPanel = useCallback(() => {
     setAiPanelOpen((current) => {
       if (current) {
@@ -1229,6 +1244,7 @@ export default function App() {
         setRepo(nextRepo)
         setDeviceId(devId)
         setAppearanceMode(prefs.appearanceMode)
+        setOpenAiApiKey(prefs.openAiApiKey ?? "")
         setSidebarVisible(prefs.sidebarVisible)
         setSidebarWidth(clampSidebarWidth(prefs.sidebarWidth))
         setAuthSession(session)
@@ -2361,13 +2377,15 @@ export default function App() {
               aiCorrection.status === "ready" &&
               canSafelyApplyAllSuggestions(aiCorrection.map, aiCorrection.suggestions)
             }
-            configured={isCorrectionConfigured()}
+            configured={isCorrectionConfigured(openAiApiKey)}
             correction={aiCorrection}
             isOpen={aiPanelOpen}
             onApplyAll={handleApplyAllAiSuggestions}
             onApplySuggestion={handleApplyAiSuggestion}
+            onClearApiKey={handleClearOpenAiApiKey}
             onClose={closeAiPanel}
             onRunCorrection={handleRunAiCorrection}
+            onSaveApiKey={handleSaveOpenAiApiKey}
             selectionSummary={aiSelectionSummary}
           />
           <div className="continuum-editor-column">

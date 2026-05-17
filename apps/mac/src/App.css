@@ -741,6 +741,56 @@ button:disabled {
   gap: 8px;
 }
 
+.continuum-ai-panel-config-row,
+.continuum-ai-panel-api-key-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.continuum-ai-panel-link-button {
+  border: 0;
+  background: transparent;
+  color: #c4d3ea;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-link-button {
+  color: #335f93;
+}
+
+.continuum-ai-panel-api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.continuum-ai-panel-api-key-form input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #30394d;
+  border-radius: 7px;
+  background: #0d111a;
+  color: #eef2fb;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 9px;
+}
+
+.continuum-ai-panel-api-key-form input:focus {
+  border-color: #5f7dbb;
+  outline: none;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-api-key-form input {
+  border-color: rgba(29, 29, 27, 0.16);
+  background: #fffdfa;
+  color: #1d1d1b;
+}
+
 .continuum-ai-panel-label {
   color: #9fb2c5;
   font-size: 11px;

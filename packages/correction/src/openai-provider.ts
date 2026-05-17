@@ -121,7 +121,7 @@ export class OpenAiCorrectionProvider implements CorrectionProvider {
 
     if (!this.apiKey) {
       throw new CorrectionError(
-        "Falta configurar VITE_OPENAI_API_KEY para usar la corrección con IA.",
+        "Falta configurar una API key de OpenAI para usar la corrección con IA.",
         this.id,
       )
     }
