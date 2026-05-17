@@ -403,7 +403,6 @@ function SidebarCreateNote({
         title="Nueva nota"
       >
         <NewNoteIcon />
-        <span>{creatingNote ? "Creando…" : "Nueva nota"}</span>
       </button>
     </div>
   )
