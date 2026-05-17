@@ -266,10 +266,6 @@ function clampFloatingMenuPosition(
   }
 }
 
-function clampContextMenuPosition(x: number, y: number) {
-  return clampFloatingMenuPosition(x, y, 430, 720)
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
@@ -373,22 +369,17 @@ function NoteSyncDot({ syncState }: { syncState: NoteMeta["syncState"] }) {
   )
 }
 
-function SidebarHeader({
-  folder,
-  onShowAll,
-}: {
-  folder: "all" | "trash"
-  onShowAll: () => void
-}) {
+function SidebarHeader({ onShowAll }: { onShowAll: () => void }) {
   return (
     <header className="continuum-sidebar-header">
-      <BrandMark />
       <button
         type="button"
-        className={`continuum-folder-chip${folder === "all" ? " active" : ""}`}
+        className="continuum-brand-button"
         onClick={onShowAll}
+        aria-label="Mostrar todas las notas"
+        title="Todas"
       >
-        Todas
+        <BrandMark />
       </button>
     </header>
   )
@@ -621,8 +612,7 @@ export default function App() {
   }, [editor])
 
   const openEditorMenuAt = useCallback((x: number, y: number) => {
-    const position = clampContextMenuPosition(x, y)
-    setEditorMenu({ isOpen: true, ...position })
+    setEditorMenu({ isOpen: true, x, y })
   }, [])
 
   const closeEditorMenu = useCallback(() => {
@@ -1701,7 +1691,7 @@ export default function App() {
         {sidebarVisible ? (
           <>
           <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-            <SidebarHeader folder={folder} onShowAll={() => setFolder("all")} />
+            <SidebarHeader onShowAll={() => setFolder("all")} />
             <SidebarCreateNote creatingNote={creatingNote} onCreateNote={handleCreateNote} />
             <div className="continuum-list" />
             <SidebarFooter
@@ -1768,7 +1758,7 @@ export default function App() {
       {sidebarVisible ? (
         <>
         <aside className="continuum-sidebar" style={{ width: sidebarWidth }}>
-          <SidebarHeader folder={folder} onShowAll={() => setFolder("all")} />
+          <SidebarHeader onShowAll={() => setFolder("all")} />
           <SidebarCreateNote creatingNote={creatingNote} onCreateNote={handleCreateNote} />
           {folder === "all" && selectedVisibleNoteIds.length > 1 ? (
             <div className="continuum-bulk-actions">
@@ -1810,7 +1800,7 @@ export default function App() {
                   {titleText ? (
                     <div className="continuum-list-title">{titleText}</div>
                   ) : null}
-                  <div className="continuum-list-preview continuum-list-preview--justified">{previewText}</div>
+                  <div className="continuum-list-preview">{previewText}</div>
                   <NoteSyncDot syncState={note.syncState} />
                 </button>
               )

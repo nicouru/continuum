@@ -10,7 +10,7 @@ import type {
   PointerEvent as ReactPointerEvent,
   ReactNode,
 } from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 const MENU_WIDTH = 430
 const VIEWPORT_MARGIN = 10
@@ -182,8 +182,19 @@ export function ContinuumEditorMenu({
 
   useEffect(() => {
     if (isOpen) {
-      setMenuPosition(clampMenuPosition(x, y, MENU_WIDTH, 720))
+      setMenuPosition({ x, y })
     }
+  }, [isOpen, x, y])
+
+  useLayoutEffect(() => {
+    if (!isOpen || !menuRef.current) {
+      return
+    }
+
+    const { offsetHeight } = menuRef.current
+    setMenuPosition((current) =>
+      clampMenuPosition(current.x, current.y, MENU_WIDTH, offsetHeight),
+    )
   }, [isOpen, x, y])
 
   useEffect(() => {

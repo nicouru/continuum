@@ -132,8 +132,7 @@
 .continuum-sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 10px;
+  justify-content: center;
   padding: 14px 12px 12px;
   border-bottom: 1px solid var(--continuum-hairline);
 }
@@ -158,9 +157,25 @@
 .continuum-brand-mark {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   min-width: 0;
   flex: none;
+}
+
+.continuum-brand-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.continuum-brand-button:focus-visible {
+  outline: 1px solid currentcolor;
+  outline-offset: 4px;
 }
 
 .continuum-brand-mark img {
@@ -187,34 +202,6 @@
   display: block;
 }
 
-.continuum-folder-chip {
-  border-radius: 6px;
-  border: 1px solid #353535;
-  background: #111111;
-  color: #d8d8d8;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 7px 12px;
-}
-
-.continuum-shell[data-theme="light"] .continuum-folder-chip {
-  border-color: rgba(29, 29, 27, 0.14);
-  background: rgba(29, 29, 27, 0.035);
-  color: rgb(0 0 0 / 0.72);
-}
-
-.continuum-folder-chip.active {
-  border-color: #565656;
-  background: #1d1d1d;
-}
-
-.continuum-shell[data-theme="light"] .continuum-folder-chip.active {
-  border-color: rgba(29, 29, 27, 0.2);
-  background: rgba(29, 29, 27, 0.07);
-  color: rgb(0 0 0 / 0.89);
-}
-
 .continuum-icon-button {
   display: inline-flex;
   align-items: center;
@@ -234,6 +221,13 @@
 }
 
 .continuum-new-note-button {
+  --continuum-button-border: rgb(255 255 255 / 0.2);
+  --continuum-button-border-hover: rgb(255 255 255 / 0.4);
+  --continuum-button-foreground: rgb(255 255 255 / 0.7);
+  --continuum-button-foreground-hover: rgb(255 255 255 / 0.92);
+  --continuum-button-hover-bg: rgb(255 255 255 / 0.055);
+  --continuum-button-sheen: rgb(255 255 255 / 0.08);
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -241,38 +235,73 @@
   width: 100%;
   min-height: 38px;
   border-radius: 6px;
-  border: 1px solid #353535;
-  background: #111111;
-  color: #d8d8d8;
+  border: 1px solid var(--continuum-button-border);
+  background: transparent;
+  color: var(--continuum-button-foreground);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
+  overflow: hidden;
   padding: 8px 12px;
+  position: relative;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    opacity 200ms ease;
+}
+
+.continuum-new-note-button::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--continuum-button-sheen),
+    transparent
+  );
+  pointer-events: none;
+  transform: translateX(-100%);
+  transition: transform 700ms ease;
 }
 
 .continuum-shell[data-theme="light"] .continuum-new-note-button {
-  border-color: rgba(29, 29, 27, 0.14);
-  background: rgba(29, 29, 27, 0.035);
-  color: rgb(0 0 0 / 0.78);
+  --continuum-button-border: rgba(29, 29, 27, 0.2);
+  --continuum-button-border-hover: rgba(29, 29, 27, 0.4);
+  --continuum-button-foreground: rgb(0 0 0 / 0.7);
+  --continuum-button-foreground-hover: rgb(0 0 0 / 0.9);
+  --continuum-button-hover-bg: rgba(29, 29, 27, 0.05);
+  --continuum-button-sheen: rgba(29, 29, 27, 0.05);
 }
 
 .continuum-new-note-button:hover:not(:disabled) {
-  border-color: #464646;
-  background: #1a1a1a;
-  color: #ededed;
+  border-color: var(--continuum-button-border-hover);
+  background: var(--continuum-button-hover-bg);
+  color: var(--continuum-button-foreground-hover);
 }
 
-.continuum-shell[data-theme="light"] .continuum-new-note-button:hover:not(:disabled) {
-  border-color: rgba(29, 29, 27, 0.2);
-  background: rgba(29, 29, 27, 0.06);
-  color: rgb(0 0 0 / 0.89);
+.continuum-new-note-button:hover:not(:disabled)::before {
+  transform: translateX(100%);
 }
 
 .continuum-new-note-button svg {
-  width: 18px;
-  height: 18px;
+  position: relative;
+  z-index: 1;
+  width: 17px;
+  height: 17px;
   flex: none;
-  stroke-width: 1.65;
+  stroke-width: 1.5;
+  transition: transform 200ms ease;
+}
+
+.continuum-new-note-button span {
+  position: relative;
+  z-index: 1;
+}
+
+.continuum-new-note-button:hover:not(:disabled) svg {
+  transform: scale(1.1);
 }
 
 .continuum-trash-folder-button.active {
@@ -457,12 +486,6 @@
 
 .continuum-shell[data-theme="light"] .continuum-list-preview {
   color: rgb(0 0 0 / 0.78);
-}
-
-/* REVERT: quitar la clase --justified del preview para desactivar justificación en tarjetas. */
-.continuum-list-preview.continuum-list-preview--justified {
-  text-align: justify;
-  text-justify: inter-word;
 }
 
 .continuum-list-sync-dot {
