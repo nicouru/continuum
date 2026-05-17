@@ -633,6 +633,17 @@ export default function App() {
     [closeNoteMenu, openEditorMenuAt],
   )
 
+  const handleCitationClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      closeNoteMenu()
+      setSidebarSelectionFocus(false)
+      openEditorMenuAt(event.clientX, event.clientY)
+    },
+    [closeNoteMenu, openEditorMenuAt],
+  )
+
   const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
     const position = clampFloatingMenuPosition(x, y, 240, 56)
     setNoteMenu({ isOpen: true, noteIds, ...position })
@@ -2018,6 +2029,7 @@ export default function App() {
           initialPrototype={prototype}
           noteId={fullNote.id}
           onPayload={handleEditorPayload}
+          onCitationClick={handleCitationClick}
           onEditorContextMenu={handleEditorContextMenu}
           onEditorFocus={() => setSidebarSelectionFocus(false)}
           focusOnLoad={noteIdToFocusOnLoad === fullNote.id}

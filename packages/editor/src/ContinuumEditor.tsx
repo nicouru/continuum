@@ -34,6 +34,7 @@ export type ContinuumEditorProps = {
   onTitleChange: (value: string) => void
   onWrittenAtChange: (value: string) => void
   onPayload: (payload: ContinuumEditorPayload) => void
+  onCitationClick?: MouseEventHandler<HTMLDivElement>
   onEditorContextMenu?: MouseEventHandler<HTMLDivElement>
   onEditorFocus?: FocusEventHandler<HTMLDivElement>
   focusOnLoad?: boolean
@@ -51,6 +52,7 @@ export function ContinuumEditor({
   onTitleChange,
   onWrittenAtChange,
   onPayload,
+  onCitationClick,
   onEditorContextMenu,
   onEditorFocus,
   focusOnLoad = false,
@@ -203,6 +205,28 @@ export function ContinuumEditor({
     editor.commands.focus("end")
   }
 
+  const handleSurfaceClick: MouseEventHandler<HTMLDivElement> = (event) => {
+    if (!editor || event.button !== 0) {
+      return
+    }
+
+    const citationElement = (event.target as HTMLElement).closest<HTMLElement>(
+      "span[data-citation-id]",
+    )
+    const citationId = citationElement?.dataset.citationId
+    if (!citationId) {
+      return
+    }
+
+    const range = findCitationMarkRange(editor, citationId)
+    if (!range) {
+      return
+    }
+
+    editor.chain().focus().setTextSelection(range).run()
+    onCitationClick?.(event)
+  }
+
   return (
     <div className="continuum-editor-root">
       {showMetadataControls ? (
@@ -228,6 +252,7 @@ export function ContinuumEditor({
       ) : null}
       <div
         className="continuum-editor-surface"
+        onClick={handleSurfaceClick}
         onContextMenu={onEditorContextMenu}
         onFocusCapture={onEditorFocus}
         onMouseDown={handleSurfaceMouseDown}
@@ -236,6 +261,36 @@ export function ContinuumEditor({
       </div>
     </div>
   )
+}
+
+function findCitationMarkRange(editor: Editor, citationId: string) {
+  const citationMark = editor.schema.marks.citation
+  if (!citationMark) {
+    return null
+  }
+
+  let range: { from: number; to: number } | null = null
+  editor.state.doc.descendants((node, pos) => {
+    if (range || !node.isText) {
+      return !range
+    }
+
+    const hasCitation = node.marks.some(
+      (mark) =>
+        mark.type === citationMark && mark.attrs.citationId === citationId,
+    )
+    if (!hasCitation) {
+      return true
+    }
+
+    range = {
+      from: pos,
+      to: pos + node.nodeSize,
+    }
+    return false
+  })
+
+  return range
 }
 
 export function continuumBootstrapPrototype(draft: StructuredNoteDraft): TipTapPrototypeDocument {
