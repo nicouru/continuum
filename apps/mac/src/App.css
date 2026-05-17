@@ -676,6 +676,17 @@ button:disabled {
   position: relative;
 }
 
+/* Persistent highlight painted on the AI correction selection range.
+   Uses Decoration.inline so it is read-only and never stored in the doc. */
+.continuum-ai-selection-highlight {
+  background-color: rgba(255, 195, 30, 0.16);
+  border-radius: 2px;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-selection-highlight {
+  background-color: rgba(210, 140, 0, 0.13);
+}
+
 .continuum-ai-panel {
   position: fixed;
   z-index: 39;
