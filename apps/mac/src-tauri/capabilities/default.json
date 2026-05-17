@@ -19,6 +19,7 @@
         { "url": "https://ocurrencias.net" },
         { "url": "https://diario-de-ocurrencias.fly.dev" },
         { "url": "https://rae-api.com" },
+        { "url": "https://api.openai.com" },
         { "url": "https://*.fly.dev" }
       ]
     }

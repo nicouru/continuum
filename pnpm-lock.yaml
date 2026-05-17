@@ -20,6 +20,9 @@ importers:
       '@continuum/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@continuum/correction':
+        specifier: workspace:*
+        version: link:../../packages/correction
       '@continuum/editor':
         specifier: workspace:*
         version: link:../../packages/editor
@@ -85,11 +88,20 @@ importers:
         specifier: ~5.8.3
         version: 5.8.3
 
+  packages/correction:
+    devDependencies:
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+
   packages/editor:
     dependencies:
       '@continuum/core':
         specifier: workspace:*
         version: link:../core
+      '@continuum/correction':
+        specifier: workspace:*
+        version: link:../correction
       '@tiptap/core':
         specifier: ^3.22.4
         version: 3.23.4(@tiptap/pm@3.23.4)

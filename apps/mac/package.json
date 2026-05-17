@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@continuum/core": "workspace:*",
+    "@continuum/correction": "workspace:*",
     "@continuum/editor": "workspace:*",
     "@continuum/lexical": "workspace:*",
     "@continuum/storage": "workspace:*",

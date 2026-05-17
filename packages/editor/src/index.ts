@@ -23,6 +23,17 @@ export type {
   ActiveBlockDetails,
 } from "./editor-queries"
 export {
+  applyCorrectionSuggestionToEditor,
+  canSafelyApplyAllSuggestions,
+  canSafelyApplySuggestion,
+  extractSelectionPlainTextMap,
+  verifyPlainTextMatchesMap,
+  type ApplyCorrectionSuggestionResult,
+  type SelectionPlainTextExtraction,
+  type SelectionPlainTextMap,
+  type SelectionPlainTextSegment,
+} from "./correction-range"
+export {
   getSelectedText,
   getSelectedEditableTextBlocks,
   getCurrentEditableTextBlock,

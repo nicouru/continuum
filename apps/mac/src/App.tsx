@@ -24,6 +24,9 @@ import {
   getActiveCitationDetails,
   getActiveReferenceInsertDetails,
   getFirstInlineMathInSelection,
+  applyCorrectionSuggestionToEditor,
+  canSafelyApplyAllSuggestions,
+  extractSelectionPlainTextMap,
   getSelectedText,
   joinCurrentBlockToPreviousAphorism,
   makeId,
@@ -69,12 +72,26 @@ import {
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
 import {
+  CorrectionError,
+  createCorrectionSuggestions,
+  shiftSuggestionOffsets,
+  type CorrectionSuggestion,
+} from "@continuum/correction"
+import {
   LexicalLookupError,
   normalizeSingleSelectedWord,
 } from "@continuum/lexical"
 import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
 import { createContinuumLexicalProvider } from "./lexical-client"
+import {
+  ContinuumAiPanel,
+  type ContinuumAiPanelCorrectionState,
+} from "./ContinuumAiPanel"
+import {
+  createContinuumCorrectionProvider,
+  isCorrectionConfigured,
+} from "./correction-client"
 import "./App.css"
 
 const SIDEBAR_MIN_WIDTH = 250
@@ -82,6 +99,8 @@ const SIDEBAR_MAX_WIDTH = 460
 const SIDEBAR_DEFAULT_WIDTH = 320
 const EDITOR_MENU_WIDTH = 360
 const EDITOR_MENU_MARGIN = 28
+// Cmd+Shift+8 toggles the left AI correction panel.
+const AI_CORRECTION_SHORTCUT_CODE = "Digit8"
 
 const MONTHS_ES = [
   "Enero",
@@ -143,6 +162,16 @@ function lexicalErrorMessage(error: unknown): string {
     return error.message
   }
   return "No se pudo consultar la fuente lexical."
+}
+
+function correctionErrorMessage(error: unknown): string {
+  if (error instanceof CorrectionError) {
+    return error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return "No se pudo corregir el texto seleccionado."
 }
 
 function syncStateLabel(state: NoteMeta["syncState"]) {
@@ -525,6 +554,10 @@ export default function App() {
     x: 0,
     y: 0,
   })
+  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [aiCorrection, setAiCorrection] = useState<ContinuumAiPanelCorrectionState>({
+    status: "idle",
+  })
   const [lexicalLookup, setLexicalLookup] =
     useState<ContinuumEditorMenuLexicalLookup | null>(null)
   const [citationPreview, setCitationPreview] = useState<{
@@ -548,6 +581,7 @@ export default function App() {
   const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
   const lexicalAbortRef = useRef<AbortController | null>(null)
+  const correctionAbortRef = useRef<AbortController | null>(null)
   const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
@@ -557,6 +591,7 @@ export default function App() {
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
+  const correctionProvider = useMemo(() => createContinuumCorrectionProvider(), [])
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
   const selectedNoteIdSet = useMemo(
@@ -642,8 +677,72 @@ export default function App() {
   }, [editor])
 
   useEffect(() => {
-    return () => lexicalAbortRef.current?.abort()
+    return () => {
+      lexicalAbortRef.current?.abort()
+      correctionAbortRef.current?.abort()
+    }
   }, [])
+
+  const aiSelectionSummary = useMemo(() => {
+    void editorRevision
+    const text = getSelectedText(editorRef.current).trim()
+
+    if (!text) {
+      return ""
+    }
+
+    return text.length > 180 ? `${text.slice(0, 180)}…` : text
+  }, [editorRevision])
+
+  const refreshAiCorrectionSuggestions = useCallback(() => {
+    setAiCorrection((current) => {
+      if (current.status !== "ready") {
+        return current
+      }
+
+      const extraction = extractSelectionPlainTextMap(editorRef.current)
+
+      if (!extraction.ok || extraction.map.plainText !== current.originalText) {
+        return {
+          ...current,
+          suggestions: current.suggestions.map((suggestion) =>
+            suggestion.status === "pending"
+              ? { ...suggestion, status: "stale" as const }
+              : suggestion,
+          ),
+        }
+      }
+
+      return {
+        ...current,
+        map: extraction.map,
+        suggestions: current.suggestions.map((suggestion) => {
+          if (suggestion.status !== "pending") {
+            return suggestion
+          }
+
+          const fragment = extraction.map.plainText.slice(
+            suggestion.originalOffset,
+            suggestion.originalOffset + suggestion.originalLength,
+          )
+
+          if (fragment !== suggestion.original) {
+            return { ...suggestion, status: "stale" as const }
+          }
+
+          return suggestion
+        }),
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!aiPanelOpen || aiCorrection.status !== "ready") {
+      return
+    }
+
+    refreshAiCorrectionSuggestions()
+  }, [aiCorrection.status, aiPanelOpen, editorRevision, refreshAiCorrectionSuggestions])
 
   const getEditorMenuPosition = useCallback(() => {
     const menuWidth = Math.min(
@@ -807,6 +906,216 @@ export default function App() {
     currentEditor.chain().focus().insertContent(word).run()
   }, [])
 
+  const closeAiPanel = useCallback(() => {
+    correctionAbortRef.current?.abort()
+    correctionAbortRef.current = null
+    setAiPanelOpen(false)
+    setAiCorrection({ status: "idle" })
+  }, [])
+
+  const toggleAiPanel = useCallback(() => {
+    setAiPanelOpen((current) => {
+      if (current) {
+        correctionAbortRef.current?.abort()
+        correctionAbortRef.current = null
+        setAiCorrection({ status: "idle" })
+        return false
+      }
+      return true
+    })
+  }, [])
+
+  const handleRunAiCorrection = useCallback(async () => {
+    const extraction = extractSelectionPlainTextMap(editorRef.current)
+
+    if (!extraction.ok) {
+      setAiCorrection({ status: "error", message: extraction.reason })
+      return
+    }
+
+    correctionAbortRef.current?.abort()
+    const controller = new AbortController()
+    correctionAbortRef.current = controller
+    setAiCorrection({ status: "loading" })
+
+    try {
+      const result = await correctionProvider.correct(
+        {
+          text: extraction.map.plainText,
+          locale: "es-UY",
+          mode: "orthography_grammar",
+        },
+        { signal: controller.signal },
+      )
+
+      if (controller.signal.aborted) {
+        return
+      }
+
+      setAiCorrection({
+        status: "ready",
+        originalText: result.originalText,
+        correctedText: result.correctedText,
+        warnings: result.warnings,
+        suggestions: createCorrectionSuggestions(
+          result.originalText,
+          result.correctedText,
+        ),
+        map: extraction.map,
+        usage: result.usage,
+      })
+    } catch (error: unknown) {
+      if (controller.signal.aborted) {
+        return
+      }
+      setAiCorrection({
+        status: "error",
+        message: correctionErrorMessage(error),
+      })
+    } finally {
+      if (correctionAbortRef.current === controller) {
+        correctionAbortRef.current = null
+      }
+    }
+  }, [correctionProvider])
+
+  const updateSuggestionInCorrectionState = useCallback(
+    (
+      suggestionId: string,
+      updater: (suggestion: CorrectionSuggestion) => CorrectionSuggestion,
+    ) => {
+      setAiCorrection((current) => {
+        if (current.status !== "ready") {
+          return current
+        }
+
+        return {
+          ...current,
+          suggestions: current.suggestions.map((suggestion) =>
+            suggestion.id === suggestionId ? updater(suggestion) : suggestion,
+          ),
+        }
+      })
+    },
+    [],
+  )
+
+  const handleApplyAiSuggestion = useCallback(
+    (suggestionId: string) => {
+      if (aiCorrection.status !== "ready") {
+        return
+      }
+
+      const suggestion = aiCorrection.suggestions.find((item) => item.id === suggestionId)
+
+      if (!suggestion || suggestion.status !== "pending") {
+        return
+      }
+
+      const result = applyCorrectionSuggestionToEditor(
+        editorRef.current,
+        aiCorrection.map,
+        suggestion,
+      )
+
+      if (result.status === "applied") {
+        const lengthDelta = suggestion.replacement.length - suggestion.originalLength
+
+        setAiCorrection((current) => {
+          if (current.status !== "ready") {
+            return current
+          }
+
+          const extraction = extractSelectionPlainTextMap(editorRef.current)
+          const nextMap = extraction.ok ? extraction.map : current.map
+          const updatedSuggestions = shiftSuggestionOffsets(
+            current.suggestions.map((item) =>
+              item.id === suggestionId ? { ...item, status: "applied" } : item,
+            ),
+            suggestion.originalOffset,
+            suggestion.originalLength,
+            lengthDelta,
+          )
+
+          return {
+            ...current,
+            map: nextMap,
+            suggestions: updatedSuggestions,
+          }
+        })
+        return
+      }
+
+      updateSuggestionInCorrectionState(suggestionId, (currentSuggestion) => ({
+        ...currentSuggestion,
+        status: result.status === "unsafe" ? "unsafe" : "stale",
+      }))
+    },
+    [aiCorrection, updateSuggestionInCorrectionState],
+  )
+
+  const handleApplyAllAiSuggestions = useCallback(() => {
+    if (aiCorrection.status !== "ready") {
+      return
+    }
+
+    if (!canSafelyApplyAllSuggestions(aiCorrection.map, aiCorrection.suggestions)) {
+      return
+    }
+
+    let workingMap = aiCorrection.map
+    let workingSuggestions = aiCorrection.suggestions
+
+    const pending = workingSuggestions
+      .filter((item) => item.status === "pending")
+      .sort((left, right) => right.originalOffset - left.originalOffset)
+
+    for (const suggestion of pending) {
+      const result = applyCorrectionSuggestionToEditor(
+        editorRef.current,
+        workingMap,
+        suggestion,
+      )
+
+      if (result.status !== "applied") {
+        workingSuggestions = workingSuggestions.map((item) =>
+          item.id === suggestion.id
+            ? {
+                ...item,
+                status: result.status === "unsafe" ? ("unsafe" as const) : ("stale" as const),
+              }
+            : item,
+        )
+        continue
+      }
+
+      const lengthDelta = suggestion.replacement.length - suggestion.originalLength
+      workingSuggestions = shiftSuggestionOffsets(
+        workingSuggestions.map((item) =>
+          item.id === suggestion.id ? { ...item, status: "applied" } : item,
+        ),
+        suggestion.originalOffset,
+        suggestion.originalLength,
+        lengthDelta,
+      )
+
+      const extraction = extractSelectionPlainTextMap(editorRef.current)
+      if (extraction.ok) {
+        workingMap = extraction.map
+      }
+    }
+
+    setAiCorrection((current) =>
+      current.status === "ready"
+        ? {
+            ...current,
+            map: workingMap,
+            suggestions: workingSuggestions,
+          }
+        : current,
+    )
+  }, [aiCorrection, updateSuggestionInCorrectionState])
+
   const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
     const position = clampFloatingMenuPosition(x, y, 240, 56)
     setNoteMenu({ isOpen: true, noteIds, ...position })
@@ -829,7 +1138,22 @@ export default function App() {
         return
       }
 
-      if (!event.metaKey || (event.key !== "9" && event.code !== "Digit9")) {
+      if (event.key === "Escape" && aiPanelOpen) {
+        closeAiPanel()
+        return
+      }
+
+      if (
+        event.metaKey &&
+        event.shiftKey &&
+        (event.key === "8" || event.code === AI_CORRECTION_SHORTCUT_CODE)
+      ) {
+        event.preventDefault()
+        toggleAiPanel()
+        return
+      }
+
+      if (!event.metaKey || event.shiftKey || (event.key !== "9" && event.code !== "Digit9")) {
         return
       }
       event.preventDefault()
@@ -839,12 +1163,15 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [
+    aiPanelOpen,
+    closeAiPanel,
     closeEditorMenu,
     closeCitationPreview,
     closeNoteMenu,
     citationPreview,
     editorMenu.isOpen,
     noteMenu.isOpen,
+    toggleAiPanel,
     toggleToolsPanel,
   ])
 
@@ -2028,6 +2355,22 @@ export default function App() {
           citationPreview={citationPreview}
           onClose={closeCitationPreview}
         />
+        <div className="continuum-main-workspace">
+          <ContinuumAiPanel
+            canApplyAll={
+              aiCorrection.status === "ready" &&
+              canSafelyApplyAllSuggestions(aiCorrection.map, aiCorrection.suggestions)
+            }
+            configured={isCorrectionConfigured()}
+            correction={aiCorrection}
+            isOpen={aiPanelOpen}
+            onApplyAll={handleApplyAllAiSuggestions}
+            onApplySuggestion={handleApplyAiSuggestion}
+            onClose={closeAiPanel}
+            onRunCorrection={handleRunAiCorrection}
+            selectionSummary={aiSelectionSummary}
+          />
+          <div className="continuum-editor-column">
         <ContinuumEditorMenu
           activeCitation={activeCitation}
           activeReferenceInsert={activeReferenceInsert}
@@ -2205,6 +2548,8 @@ export default function App() {
           title={title}
           writtenAt={writtenAt}
         />
+          </div>
+        </div>
       </main>
     </div>
   )
