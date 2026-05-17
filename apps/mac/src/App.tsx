@@ -103,24 +103,20 @@ import {
   readAiCorrectionSessions,
   writeAiCorrectionSessions,
 } from "./ai-correction-sessions"
+import {
+  clampFloatingMenuPosition,
+  initialAiPanelPosition,
+  initialEditorMenuPosition,
+  useFloatingPanelLayout,
+} from "./use-floating-panel-layout"
 import { useAiSelectionHighlight } from "./use-ai-selection-highlight"
 import "./App.css"
 
 const SIDEBAR_MIN_WIDTH = 250
 const SIDEBAR_MAX_WIDTH = 460
 const SIDEBAR_DEFAULT_WIDTH = 320
-const EDITOR_MENU_WIDTH = 360
-const AI_PANEL_WIDTH = 320
-const FLOATING_PANEL_MIN_WIDTH = 240
-const EDITOR_MENU_MARGIN = 28
 // Cmd+Shift+8 toggles the left AI correction panel.
 const AI_CORRECTION_SHORTCUT_CODE = "Digit8"
-
-type FloatingPanelPosition = {
-  width: number
-  x: number
-  y: number
-}
 
 type AiCorrectionReadyState = Extract<
   ContinuumAiPanelCorrectionState,
@@ -327,22 +323,6 @@ function formatRetryTime(value: string | null) {
     return null
   }
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
-
-function clampFloatingMenuPosition(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  const margin = 10
-  const menuWidth = Math.min(width, window.innerWidth - margin * 2)
-  const menuHeight = Math.min(height, window.innerHeight - margin * 2)
-
-  return {
-    x: Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin)),
-    y: Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin)),
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -693,16 +673,10 @@ export default function App() {
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
     isOpen: false,
-    width: EDITOR_MENU_WIDTH,
-    x: 0,
-    y: 0,
+    ...initialEditorMenuPosition,
   })
   const [aiPanelOpen, setAiPanelOpen] = useState(false)
-  const [aiPanelPosition, setAiPanelPosition] = useState<FloatingPanelPosition>({
-    width: AI_PANEL_WIDTH,
-    x: EDITOR_MENU_MARGIN,
-    y: EDITOR_MENU_MARGIN,
-  })
+  const [aiPanelPosition, setAiPanelPosition] = useState(initialAiPanelPosition)
   const [aiCorrection, setAiCorrection] = useState<ContinuumAiPanelCorrectionState>({
     status: "idle",
   })
@@ -748,6 +722,8 @@ export default function App() {
     isOpen: aiPanelOpen,
     selectedId,
   })
+  const { getAiPanelPosition, getEditorMenuPosition } =
+    useFloatingPanelLayout(mainRef)
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
@@ -978,68 +954,6 @@ export default function App() {
     selectedId,
     syncAiCorrectionWithSelection,
   ])
-
-  const getFloatingPanelPosition = useCallback(
-    (side: "left" | "right", preferredWidth: number): FloatingPanelPosition => {
-      const viewportWidth = window.innerWidth
-      const panelWidth = Math.min(
-        preferredWidth,
-        Math.max(FLOATING_PANEL_MIN_WIDTH, viewportWidth - EDITOR_MENU_MARGIN * 2),
-      )
-      const mainRect = mainRef.current?.getBoundingClientRect()
-      const editorRect = mainRef.current
-        ?.querySelector(".continuum-editor-surface .tiptap")
-        ?.getBoundingClientRect()
-      const y = Math.max(EDITOR_MENU_MARGIN, mainRect?.top ?? EDITOR_MENU_MARGIN)
-
-      if (!editorRect) {
-        const x =
-          side === "right"
-            ? viewportWidth - panelWidth - EDITOR_MENU_MARGIN
-            : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
-
-        return { width: panelWidth, x, y }
-      }
-
-      const availableStart =
-        side === "right"
-          ? editorRect.right + EDITOR_MENU_MARGIN
-          : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
-      const availableEnd =
-        side === "right"
-          ? viewportWidth - EDITOR_MENU_MARGIN
-          : editorRect.left - EDITOR_MENU_MARGIN
-      const availableWidth = availableEnd - availableStart
-
-      if (availableWidth > 0) {
-        const width = Math.max(
-          Math.min(preferredWidth, availableWidth),
-          Math.min(FLOATING_PANEL_MIN_WIDTH, availableWidth),
-        )
-        const x = availableStart + Math.max(0, (availableWidth - width) / 2)
-
-        return { width, x, y }
-      }
-
-      const x =
-        side === "right"
-          ? viewportWidth - panelWidth - EDITOR_MENU_MARGIN
-          : Math.max(mainRect?.left ?? EDITOR_MENU_MARGIN, EDITOR_MENU_MARGIN)
-
-      return { width: panelWidth, x, y }
-    },
-    [],
-  )
-
-  const getEditorMenuPosition = useCallback(
-    () => getFloatingPanelPosition("right", EDITOR_MENU_WIDTH),
-    [getFloatingPanelPosition],
-  )
-
-  const getAiPanelPosition = useCallback(
-    () => getFloatingPanelPosition("left", AI_PANEL_WIDTH),
-    [getFloatingPanelPosition],
-  )
 
   const clearLexicalLookup = useCallback(() => {
     lexicalAbortRef.current?.abort()
