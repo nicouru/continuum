@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { Editor } from "@tiptap/core"
+import { Editor, Mark, Node } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
 import type { CorrectionSuggestion } from "@continuum/correction"
 import {
+  applyCorrectionSuggestionToEditor,
   canSafelyApplySuggestion,
   extractSelectionPlainTextMap,
   type SelectionPlainTextMap,
@@ -38,6 +39,97 @@ function makeParagraphEditor(paragraphs: string[]) {
           ? { content: [{ type: "text", text: paragraph }] }
           : {}),
       })),
+    },
+  })
+}
+
+const TestInlineMathNode = Node.create({
+  name: "inlineMath",
+  group: "inline",
+  inline: true,
+  atom: true,
+
+  addAttributes() {
+    return {
+      tex: {
+        default: "",
+      },
+    }
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", HTMLAttributes, HTMLAttributes.tex]
+  },
+})
+
+const TestReferenceInsertNode = Node.create({
+  name: "referenceInsert",
+  group: "block",
+  content: "inline*",
+
+  renderHTML({ HTMLAttributes }) {
+    return ["blockquote", HTMLAttributes, 0]
+  },
+})
+
+const TestCitationMark = Mark.create({
+  name: "citation",
+
+  addAttributes() {
+    return {
+      citationId: {
+        default: null,
+      },
+      visibleNumber: {
+        default: "",
+      },
+    }
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return ["span", HTMLAttributes, 0]
+  },
+})
+
+function makeStructuredEditor() {
+  return new Editor({
+    extensions: [
+      StarterKit,
+      TestInlineMathNode,
+      TestReferenceInsertNode,
+      TestCitationMark,
+    ],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "algebraica " },
+            { type: "inlineMath", attrs: { tex: "x^y" } },
+            { type: "text", text: ", la mujer" },
+          ],
+        },
+        {
+          type: "referenceInsert",
+          content: [{ type: "text", text: "cita con error" }],
+        },
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "eser",
+              marks: [
+                {
+                  type: "citation",
+                  attrs: { citationId: "citation-1", visibleNumber: "8" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
   })
 }
@@ -175,6 +267,101 @@ describe("extractSelectionPlainTextMap", () => {
     expect(extraction.map.segments.map((segment) => segment.plainFrom)).toEqual([
       0,
       "uno\n\n".length,
+    ])
+    editor.destroy()
+  })
+
+  it("keeps correction available across inline math and reference blocks", () => {
+    const editor = makeStructuredEditor()
+    const ranges = getTextRanges(editor)
+    const from = ranges[0]!.from
+    const to = ranges[2]!.to
+    editor.commands.setTextSelection({ from, to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    expect(extraction.map.plainText).toBe(
+      "algebraica $x^y$, la mujer\ncita con error",
+    )
+    expect(extraction.map.segments).toEqual([
+      {
+        docFrom: ranges[0]!.from,
+        docTo: ranges[0]!.to,
+        plainFrom: 0,
+        plainTo: "algebraica ".length,
+      },
+      {
+        docFrom: ranges[1]!.from,
+        docTo: ranges[1]!.to,
+        plainFrom: "algebraica $x^y$".length,
+        plainTo: "algebraica $x^y$, la mujer".length,
+      },
+      {
+        docFrom: ranges[2]!.from,
+        docTo: ranges[2]!.to,
+        plainFrom: "algebraica $x^y$, la mujer\n".length,
+        plainTo: "algebraica $x^y$, la mujer\ncita con error".length,
+      },
+    ])
+
+    const referenceCorrection = makeSuggestion({
+      original: "error",
+      replacement: "errata",
+      originalOffset: extraction.map.plainText.indexOf("error"),
+      originalLength: "error".length,
+    })
+
+    const mathCorrection = makeSuggestion({
+      original: "$x^y$",
+      replacement: "$x^2$",
+      originalOffset: extraction.map.plainText.indexOf("$x^y$"),
+      originalLength: "$x^y$".length,
+    })
+
+    expect(canSafelyApplySuggestion(extraction.map, referenceCorrection)).toBe(true)
+    expect(canSafelyApplySuggestion(extraction.map, mathCorrection)).toBe(false)
+    editor.destroy()
+  })
+
+  it("applies corrections inside cited text without dropping citation marks", () => {
+    const editor = makeStructuredEditor()
+    const ranges = getTextRanges(editor)
+    const citedRange = ranges.at(-1)!
+    editor.commands.setTextSelection({ from: citedRange.from, to: citedRange.to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    const suggestion = makeSuggestion({
+      original: "eser",
+      replacement: "ser",
+      originalOffset: 0,
+      originalLength: "eser".length,
+    })
+
+    expect(applyCorrectionSuggestionToEditor(editor, extraction.map, suggestion)).toEqual({
+      status: "applied",
+    })
+
+    const json = editor.getJSON()
+    const citedText = json.content?.[2]?.content?.[0]
+
+    expect(citedText?.text).toBe("ser")
+    expect(citedText?.marks).toEqual([
+      {
+        type: "citation",
+        attrs: { citationId: "citation-1", visibleNumber: "8" },
+      },
     ])
     editor.destroy()
   })

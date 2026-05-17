@@ -78,8 +78,9 @@ Los offsets que devuelven los LLM sobre texto editado no son fiables en document
 
 ## Limitaciones conocidas
 
-- Selecciones con `inlineMath`, `referenceInsert` u otros nodos inline no soportados → error antes de llamar a OpenAI.
-- Aplicar una sugerencia requiere un único segmento de texto mapeable; si no, queda `unsafe`.
+- Las fórmulas inline se envían como texto protegido estilo `$...$`; si el modelo intenta cambiarlas, la sugerencia queda `unsafe`.
+- Las citas/superíndices como marks y los bloques `referenceInsert` ya no bloquean la corrección; al aplicar cambios se preservan las marks originales del texto.
+- Aplicar una sugerencia requiere un único segmento de texto mapeable; si cruza fórmula, salto estructural o varios segmentos, queda `unsafe`.
 - Si el documento cambia tras la corrección, sugerencias pendientes pasan a `stale`.
 - «Aplicar todas» solo si todas las pendientes son seguras.
 - No se envía contexto de nota al modelo (solo el fragmento seleccionado).

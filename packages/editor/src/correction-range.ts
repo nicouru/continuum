@@ -2,10 +2,36 @@ import type { Editor } from "@tiptap/core"
 import type { CorrectionSuggestion } from "@continuum/correction"
 import { isEditableTextBlockType } from "./editor-queries"
 
-const UNSUPPORTED_INLINE_NODE_TYPES = new Set([
-  "inlineMath",
-  "referenceInsert",
-])
+function getStringAttribute(attrs: Record<string, unknown>, key: string) {
+  const value = attrs[key]
+
+  return typeof value === "string" ? value : ""
+}
+
+function getCorrectionLeafText(node: {
+  attrs: Record<string, unknown>
+  type: { name: string }
+}) {
+  if (node.type.name === "inlineMath") {
+    const tex = getStringAttribute(node.attrs, "tex").trim()
+
+    return tex ? `$${tex}$` : ""
+  }
+
+  if (node.type.name === "manualIndent") {
+    return "    "
+  }
+
+  if (node.type.name === "hardBreak") {
+    return "\n"
+  }
+
+  return ""
+}
+
+function isCorrectionTextBlockType(typeName: string) {
+  return isEditableTextBlockType(typeName) || typeName === "referenceInsert"
+}
 
 export type SelectionPlainTextSegment = {
   docFrom: number
@@ -36,28 +62,6 @@ export type ApplyCorrectionSuggestionResult =
   | { status: "stale" }
   | { status: "unsafe"; reason: string }
 
-function selectionContainsUnsupportedInlineNodes(editor: Editor, from: number, to: number) {
-  let unsupported = false
-
-  editor.state.doc.nodesBetween(from, to, (node) => {
-    if (node.isText) {
-      return
-    }
-
-    if (UNSUPPORTED_INLINE_NODE_TYPES.has(node.type.name)) {
-      unsupported = true
-      return false
-    }
-
-    if (node.isInline && !node.isText) {
-      unsupported = true
-      return false
-    }
-  })
-
-  return unsupported
-}
-
 export function extractSelectionPlainTextMap(editor: Editor | null): SelectionPlainTextExtraction {
   if (!editor || editor.state.selection.empty) {
     return { ok: false, reason: "No hay texto seleccionado." }
@@ -65,40 +69,24 @@ export function extractSelectionPlainTextMap(editor: Editor | null): SelectionPl
 
   const { from, to } = editor.state.selection
 
-  if (selectionContainsUnsupportedInlineNodes(editor, from, to)) {
-    return {
-      ok: false,
-      reason:
-        "La selección incluye citas, referencias, matemática u otros elementos que no se pueden corregir de forma segura.",
-    }
-  }
-
-  const plainText = editor.state.doc.textBetween(from, to, "\n", (node) => {
-    if (UNSUPPORTED_INLINE_NODE_TYPES.has(node.type.name)) {
-      return "\uFFFC"
-    }
-    return ""
-  })
-
-  if (plainText.includes("\uFFFC")) {
-    return {
-      ok: false,
-      reason:
-        "La selección incluye citas, referencias, matemática u otros elementos que no se pueden corregir de forma segura.",
-    }
-  }
+  const plainText = editor.state.doc.textBetween(from, to, "\n", getCorrectionLeafText)
 
   const segments: SelectionPlainTextSegment[] = []
   let plainCursor = 0
   let hasSeenEditableTextBlock = false
 
   editor.state.doc.nodesBetween(from, to, (node, position) => {
-    if (node.isBlock && isEditableTextBlockType(node.type.name)) {
+    if (node.isBlock && isCorrectionTextBlockType(node.type.name)) {
       if (hasSeenEditableTextBlock && plainCursor < plainText.length) {
         plainCursor += 1
       }
       hasSeenEditableTextBlock = true
       return
+    }
+
+    if (!node.isText && node.isLeaf) {
+      plainCursor += getCorrectionLeafText(node).length
+      return false
     }
 
     if (!node.isText) {
@@ -216,6 +204,29 @@ export function canSafelyApplySuggestion(
   return docFrom !== null && docTo !== null && docFrom < docTo
 }
 
+function getTextMarksForRange(
+  editor: Editor,
+  from: number,
+  to: number,
+) {
+  let marks = null as readonly ReturnType<typeof editor.state.schema.mark>[] | null
+
+  editor.state.doc.nodesBetween(from, to, (node, position) => {
+    if (!node.isText) {
+      return
+    }
+
+    if (from < position || to > position + node.nodeSize) {
+      return
+    }
+
+    marks = node.marks
+    return false
+  })
+
+  return marks
+}
+
 export function applyCorrectionSuggestionToEditor(
   editor: Editor | null,
   map: SelectionPlainTextMap,
@@ -257,15 +268,38 @@ export function applyCorrectionSuggestionToEditor(
     }
   }
 
-  const applied = editor
-    .chain()
-    .focus()
-    .insertContentAt({ from: docFrom, to: docTo }, suggestion.replacement, {
-      updateSelection: false,
-    })
-    .run()
+  if (suggestion.replacement.includes("\n")) {
+    return {
+      status: "unsafe",
+      reason: "No se puede aplicar una corrección multilinea desde esta vista.",
+    }
+  }
 
-  if (!applied) {
+  const marks = getTextMarksForRange(editor, docFrom, docTo)
+
+  if (!marks) {
+    return {
+      status: "unsafe",
+      reason: "No se puede aplicar esta corrección de forma segura.",
+    }
+  }
+
+  const transaction = editor.state.tr
+
+  if (suggestion.replacement.length > 0) {
+    transaction.replaceWith(
+      docFrom,
+      docTo,
+      editor.state.schema.text(suggestion.replacement, marks),
+    )
+  } else {
+    transaction.delete(docFrom, docTo)
+  }
+
+  try {
+    editor.view.dispatch(transaction)
+    editor.commands.focus()
+  } catch {
     return {
       status: "unsafe",
       reason: "No se puede aplicar esta corrección de forma segura.",
