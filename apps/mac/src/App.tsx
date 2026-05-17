@@ -74,11 +74,9 @@ import {
 import {
   CorrectionError,
   createCorrectionSuggestions,
-  findCorrectionSession,
   rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
   shiftSuggestionOffsets,
-  upsertCorrectionSession,
   type CorrectionSessionIdentity,
   type CorrectionSessionRecord,
   type CorrectionSuggestion,
@@ -94,10 +92,6 @@ import {
   isCorrectionConfigured,
 } from "./correction-client"
 import {
-  readAiCorrectionSessions,
-  writeAiCorrectionSessions,
-} from "./ai-correction-sessions"
-import {
   clampFloatingMenuPosition,
   initialAiPanelPosition,
   initialEditorMenuPosition,
@@ -109,6 +103,7 @@ import {
   useContinuumPreferencesState,
 } from "./use-continuum-preferences-state"
 import { useLexicalLookup } from "./use-lexical-lookup"
+import { useAiCorrectionSessions } from "./use-ai-correction-sessions"
 import "./App.css"
 
 // Cmd+Shift+8 toggles the left AI correction panel.
@@ -404,25 +399,6 @@ function createReadyAiCorrectionState(
   }
 }
 
-function createAiCorrectionSessionRecord(
-  correction: AiCorrectionReadyState,
-): CorrectionSessionRecord | null {
-  if (!correction.session) {
-    return null
-  }
-
-  return {
-    ...correction.session,
-    sourceText: correction.sourceText,
-    currentText: correction.originalText,
-    correctedText: correction.correctedText,
-    warnings: correction.warnings,
-    suggestions: correction.suggestions,
-    usage: correction.usage,
-    updatedAt: Date.now(),
-  }
-}
-
 function hasUnpushedLocalState(note: NoteFull) {
   return (
     note.syncState === "dirty" ||
@@ -693,8 +669,6 @@ export default function App() {
   const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
   const correctionAbortRef = useRef<AbortController | null>(null)
-  const aiCorrectionSessionsRef = useRef<CorrectionSessionRecord[]>([])
-  const aiCorrectionSessionSaveTimerRef = useRef<number | undefined>(undefined)
   const offlineRef = useRef(false)
   offlineRef.current = offline
 
@@ -721,6 +695,11 @@ export default function App() {
     editorRevision,
     isMenuOpen: editorMenu.isOpen,
   })
+  const {
+    findAiCorrectionSession,
+    persistAiCorrectionState,
+    sessionRevision: aiCorrectionSessionRevision,
+  } = useAiCorrectionSessions()
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const correctionProvider = useMemo(
@@ -814,60 +793,8 @@ export default function App() {
   useEffect(() => {
     return () => {
       correctionAbortRef.current?.abort()
-      if (aiCorrectionSessionSaveTimerRef.current !== undefined) {
-        window.clearTimeout(aiCorrectionSessionSaveTimerRef.current)
-      }
-      writeAiCorrectionSessions(aiCorrectionSessionsRef.current).catch(() => {})
     }
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-
-    readAiCorrectionSessions()
-      .then((sessions) => {
-        if (cancelled) {
-          return
-        }
-        aiCorrectionSessionsRef.current = sessions
-        setEditorRevision((value) => value + 1)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          aiCorrectionSessionsRef.current = []
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const persistAiCorrectionRecord = useCallback((session: CorrectionSessionRecord) => {
-    const nextSessions = upsertCorrectionSession(
-      aiCorrectionSessionsRef.current,
-      session,
-    )
-    aiCorrectionSessionsRef.current = nextSessions
-    if (aiCorrectionSessionSaveTimerRef.current !== undefined) {
-      window.clearTimeout(aiCorrectionSessionSaveTimerRef.current)
-    }
-    aiCorrectionSessionSaveTimerRef.current = window.setTimeout(() => {
-      void writeAiCorrectionSessions(aiCorrectionSessionsRef.current)
-      aiCorrectionSessionSaveTimerRef.current = undefined
-    }, 350)
-  }, [])
-
-  const persistAiCorrectionState = useCallback(
-    (correction: AiCorrectionReadyState) => {
-      const session = createAiCorrectionSessionRecord(correction)
-
-      if (session) {
-        persistAiCorrectionRecord(session)
-      }
-    },
-    [persistAiCorrectionRecord],
-  )
 
   const aiSelectionSummary = useMemo(() => {
     void editorRevision
@@ -920,10 +847,7 @@ export default function App() {
         return next
       }
 
-      const cached = findCorrectionSession(
-        aiCorrectionSessionsRef.current,
-        identity.key,
-      )
+      const cached = findAiCorrectionSession(identity.key)
 
       if (!cached) {
         return current.status === "idle" ? current : { status: "idle" }
@@ -933,7 +857,7 @@ export default function App() {
       persistAiCorrectionState(next)
       return next
     })
-  }, [aiPanelOpen, persistAiCorrectionState])
+  }, [aiPanelOpen, findAiCorrectionSession, persistAiCorrectionState])
 
   useEffect(() => {
     correctionAbortRef.current?.abort()
@@ -946,6 +870,7 @@ export default function App() {
   }, [
     aiPanelOpen,
     editorRevision,
+    aiCorrectionSessionRevision,
     selectedId,
     syncAiCorrectionWithSelection,
   ])
@@ -1099,7 +1024,7 @@ export default function App() {
       to: identity.map.selectionTo,
     })
 
-    const cached = findCorrectionSession(aiCorrectionSessionsRef.current, identity.key)
+    const cached = findAiCorrectionSession(identity.key)
 
     if (cached) {
       const next = createReadyAiCorrectionState(identity, cached)
@@ -1178,7 +1103,12 @@ export default function App() {
         correctionAbortRef.current = null
       }
     }
-  }, [correctionProvider, dispatchAiSelectionHighlight, persistAiCorrectionState])
+  }, [
+    correctionProvider,
+    dispatchAiSelectionHighlight,
+    findAiCorrectionSession,
+    persistAiCorrectionState,
+  ])
 
   const updateSuggestionInCorrectionState = useCallback(
     (
