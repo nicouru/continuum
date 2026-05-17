@@ -1,11 +1,12 @@
 import { buildCorrectionDiffChanges } from "./diff"
 import type { CorrectionSuggestion, CorrectionSuggestionStatus } from "./types"
 
-let suggestionCounter = 0
-
 function nextSuggestionId() {
-  suggestionCounter += 1
-  return `correction-${suggestionCounter}`
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
 export function createCorrectionSuggestions(
@@ -45,6 +46,13 @@ export function shiftSuggestionOffsets(
         ...suggestion,
         originalOffset: suggestion.originalOffset + lengthDelta,
       }
+    }
+
+    if (
+      suggestion.originalOffset >= appliedOffset &&
+      suggestion.originalOffset < appliedEnd
+    ) {
+      return { ...suggestion, status: "stale" as const }
     }
 
     if (
@@ -159,6 +167,24 @@ export function rebaseCorrectionSuggestionOffsets(
       return suggestion
     }
 
+    if (suggestion.status === "stale") {
+      const fragmentAtOffset = currentText.slice(
+        suggestion.originalOffset,
+        suggestion.originalOffset + suggestion.originalLength,
+      )
+      const replacementAtOffset = currentText.slice(
+        suggestion.originalOffset,
+        suggestion.originalOffset + suggestion.replacement.length,
+      )
+
+      if (
+        fragmentAtOffset !== suggestion.original &&
+        replacementAtOffset === suggestion.replacement
+      ) {
+        return suggestion
+      }
+    }
+
     const rebasedSuggestion =
       suggestion.status === "stale"
         ? { ...suggestion, status: "pending" as const }
@@ -210,38 +236,4 @@ export function rebaseCorrectionSuggestionOffsets(
 
     return { ...rebasedSuggestion, originalOffset: best.offset }
   })
-}
-
-export function renderCorrectedPreview(
-  originalText: string,
-  correctedText: string,
-): Array<{ kind: "unchanged" | "changed"; text: string }> {
-  const ops = buildCorrectionDiffChanges(originalText, correctedText)
-  if (ops.length === 0) {
-    return [{ kind: "unchanged", text: originalText }]
-  }
-
-  const segments: Array<{ kind: "unchanged" | "changed"; text: string }> = []
-  let cursor = 0
-
-  for (const change of ops) {
-    if (cursor < change.originalOffset) {
-      segments.push({
-        kind: "unchanged",
-        text: originalText.slice(cursor, change.originalOffset),
-      })
-    }
-
-    if (change.replacement.length > 0) {
-      segments.push({ kind: "changed", text: change.replacement })
-    }
-
-    cursor = change.originalOffset + change.originalLength
-  }
-
-  if (cursor < originalText.length) {
-    segments.push({ kind: "unchanged", text: originalText.slice(cursor) })
-  }
-
-  return segments
 }

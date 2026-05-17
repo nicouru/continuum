@@ -7,7 +7,6 @@ import {
   parseOpenAiCorrectionResponseBody,
   rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
-  renderCorrectedPreview,
   shiftSuggestionOffsets,
   upsertCorrectionSession,
   validateCorrectionModelResponse,
@@ -168,6 +167,47 @@ describe("shiftSuggestionOffsets", () => {
     ])
   })
 
+  it("marks pending suggestions stale when they start inside an applied range", () => {
+    const suggestions = [
+      {
+        id: "applied-first",
+        original: "hola",
+        originalLength: "hola".length,
+        originalOffset: 0,
+        replacement: "hola",
+        status: "applied" as const,
+      },
+      {
+        id: "inside-applied",
+        original: "la",
+        originalLength: "la".length,
+        originalOffset: 2,
+        replacement: "lá",
+        status: "pending" as const,
+      },
+      {
+        id: "after-applied",
+        original: " mundo",
+        originalLength: " mundo".length,
+        originalOffset: "hola".length,
+        replacement: " mundo",
+        status: "pending" as const,
+      },
+    ]
+
+    const lengthDelta = "hola mundo".length - "hola".length
+
+    const shifted = shiftSuggestionOffsets(suggestions, 0, "hola".length, lengthDelta)
+
+    expect(shifted.find((item) => item.id === "inside-applied")).toMatchObject({
+      status: "stale",
+    })
+    expect(shifted.find((item) => item.id === "after-applied")).toMatchObject({
+      status: "pending",
+      originalOffset: "hola".length + lengthDelta,
+    })
+  })
+
   it("marks only mismatched pending suggestions stale", () => {
     const suggestions = [
       {
@@ -258,6 +298,50 @@ describe("rebaseCorrectionSuggestionOffsets", () => {
     })
   })
 
+  it("does not revive stale suggestions after the user manually applied the replacement", () => {
+    const [rebased] = rebaseCorrectionSuggestionOffsets(
+      [
+        {
+          id: "en-el",
+          original: "en",
+          originalLength: "en".length,
+          originalOffset: "esta ".length,
+          replacement: "el",
+          status: "stale" as const,
+        },
+      ],
+      "esta en casa",
+      "esta el casa",
+    )
+
+    expect(rebased).toMatchObject({
+      original: "en",
+      replacement: "el",
+      status: "stale",
+    })
+  })
+
+  it("marks rebase stale when the same word repeats with ambiguous context", () => {
+    const [rebased] = rebaseCorrectionSuggestionOffsets(
+      [
+        {
+          id: "linea",
+          original: "linea",
+          originalLength: "linea".length,
+          originalOffset: 0,
+          replacement: "línea",
+          status: "stale" as const,
+        },
+      ],
+      "prefijo linea medio linea final",
+      "prefijo linea medio linea final",
+    )
+
+    expect(rebased).toMatchObject({
+      status: "stale",
+    })
+  })
+
   it("revives stale suggestions when the text is selected again unchanged", () => {
     const [rebased] = rebaseCorrectionSuggestionOffsets(
       [
@@ -282,11 +366,13 @@ describe("rebaseCorrectionSuggestionOffsets", () => {
   })
 })
 
-describe("renderCorrectedPreview", () => {
-  it("highlights changed fragments", () => {
-    expect(renderCorrectedPreview("esta", "está")).toEqual([
-      { kind: "changed", text: "está" },
-    ])
+describe("createCorrectionSuggestions", () => {
+  it("assigns unique suggestion ids", () => {
+    const suggestions = createCorrectionSuggestions("esta", "está")
+
+    expect(suggestions).toHaveLength(1)
+    expect(suggestions[0]?.id).toBeTruthy()
+    expect(suggestions[0]?.id).not.toMatch(/^correction-\d+$/)
   })
 })
 
