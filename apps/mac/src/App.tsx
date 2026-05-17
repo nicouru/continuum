@@ -35,7 +35,6 @@ import {
   removeCitationFromSelection,
   separateAphorismFromCurrentBlock,
   unmarkCurrentBlockAsAphorism,
-  aiSelectionHighlightPluginKey,
   type ContinuumCitationClickDetails,
   type ContinuumEditorPayload,
   type SelectionPlainTextMap,
@@ -104,6 +103,7 @@ import {
   readAiCorrectionSessions,
   writeAiCorrectionSessions,
 } from "./ai-correction-sessions"
+import { useAiSelectionHighlight } from "./use-ai-selection-highlight"
 import "./App.css"
 
 const SIDEBAR_MIN_WIDTH = 250
@@ -732,13 +732,22 @@ export default function App() {
   const correctionAbortRef = useRef<AbortController | null>(null)
   const aiCorrectionSessionsRef = useRef<CorrectionSessionRecord[]>([])
   const aiCorrectionSessionSaveTimerRef = useRef<number | undefined>(undefined)
-  const pendingAiHighlightRef = useRef<{ from: number; to: number } | null>(null)
   const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
 
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedId
+
+  const {
+    capturePendingAiSelectionHighlight,
+    clearPendingAiSelectionHighlight,
+    dispatchAiSelectionHighlight,
+  } = useAiSelectionHighlight({
+    editorRef,
+    isOpen: aiPanelOpen,
+    selectedId,
+  })
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
   const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
@@ -1204,49 +1213,13 @@ export default function App() {
     currentEditor.chain().focus().insertContent(word).run()
   }, [])
 
-  const dispatchAiSelectionHighlight = useCallback(
-    (range: { from: number; to: number } | null) => {
-      const editor = editorRef.current
-      if (!editor) return
-      editor.view.dispatch(
-        editor.state.tr.setMeta(aiSelectionHighlightPluginKey, range),
-      )
-    },
-    [],
-  )
-
-  useEffect(() => {
-    pendingAiHighlightRef.current = null
-    dispatchAiSelectionHighlight(null)
-  }, [selectedId, dispatchAiSelectionHighlight])
-
   const closeAiPanel = useCallback(() => {
     correctionAbortRef.current?.abort()
     correctionAbortRef.current = null
-    pendingAiHighlightRef.current = null
+    clearPendingAiSelectionHighlight()
     setAiPanelOpen(false)
     setAiCorrection({ status: "idle" })
-  }, [])
-
-  useEffect(() => {
-    if (!aiPanelOpen) {
-      pendingAiHighlightRef.current = null
-      dispatchAiSelectionHighlight(null)
-      return
-    }
-    const pendingHighlight = pendingAiHighlightRef.current
-    if (pendingHighlight && pendingHighlight.from < pendingHighlight.to) {
-      pendingAiHighlightRef.current = null
-      dispatchAiSelectionHighlight(pendingHighlight)
-      return
-    }
-    const editor = editorRef.current
-    if (!editor) return
-    const { from, to } = editor.state.selection
-    if (from < to) {
-      dispatchAiSelectionHighlight({ from, to })
-    }
-  }, [aiPanelOpen, dispatchAiSelectionHighlight])
+  }, [clearPendingAiSelectionHighlight])
 
   const handleSaveOpenAiApiKey = useCallback(async (apiKey: string) => {
     const nextApiKey = apiKey.trim()
@@ -1264,22 +1237,19 @@ export default function App() {
       if (current) {
         correctionAbortRef.current?.abort()
         correctionAbortRef.current = null
-        pendingAiHighlightRef.current = null
+        clearPendingAiSelectionHighlight()
         setAiCorrection({ status: "idle" })
         return false
       }
-      const currentEditor = editorRef.current
-      pendingAiHighlightRef.current =
-        currentEditor && !currentEditor.state.selection.empty
-          ? {
-              from: currentEditor.state.selection.from,
-              to: currentEditor.state.selection.to,
-            }
-          : null
+      capturePendingAiSelectionHighlight()
       setAiPanelPosition(getAiPanelPosition())
       return true
     })
-  }, [getAiPanelPosition])
+  }, [
+    capturePendingAiSelectionHighlight,
+    clearPendingAiSelectionHighlight,
+    getAiPanelPosition,
+  ])
 
   const handleRunAiCorrection = useCallback(async () => {
     const identity = getAiCorrectionSelectionIdentity(
