@@ -23,6 +23,9 @@ importers:
       '@continuum/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@continuum/lexical':
+        specifier: workspace:*
+        version: link:../../packages/lexical
       '@continuum/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -115,6 +118,12 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.6
         version: 19.2.3(@types/react@19.2.14)
+      typescript:
+        specifier: ~5.8.3
+        version: 5.8.3
+
+  packages/lexical:
+    devDependencies:
       typescript:
         specifier: ~5.8.3
         version: 5.8.3

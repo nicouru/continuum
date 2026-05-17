@@ -6,6 +6,10 @@ export default defineConfig({
     alias: {
       "@continuum/core": path.resolve(__dirname, "packages/core/src/index.ts"),
       "@continuum/editor": path.resolve(__dirname, "packages/editor/src/index.ts"),
+      "@continuum/lexical": path.resolve(
+        __dirname,
+        "packages/lexical/src/index.ts",
+      ),
       "@continuum/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
       "@continuum/storage/types": path.resolve(
         __dirname,

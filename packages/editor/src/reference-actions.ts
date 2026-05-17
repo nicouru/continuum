@@ -11,6 +11,9 @@ import {
 import { getSelectedText, getNextCitationNumber } from "./editor-queries"
 import { getReferenceLabelById } from "./editor-references"
 
+const OPENING_QUOTE_MARKS = new Set(['"', "“", "”", "„", "«"])
+const CLOSING_QUOTE_MARKS = new Set(['"', "“", "”", "‟", "»"])
+
 export function addCitationToSelection(editor: Editor | null) {
   if (!editor || editor.state.selection.empty) {
     return null
@@ -178,6 +181,7 @@ export function convertSelectionToReferenceInsert(editor: Editor | null) {
   }
 
   const blockId = makeId("tiptap-reference-insert")
+  const quotedText = quoteReferenceInsertText(selectedText)
 
   editor
     .chain()
@@ -199,7 +203,7 @@ export function convertSelectionToReferenceInsert(editor: Editor | null) {
               type: "segment",
             },
           ],
-          text: selectedText,
+          text: quotedText,
           type: "text",
         },
       ],
@@ -209,4 +213,25 @@ export function convertSelectionToReferenceInsert(editor: Editor | null) {
   normalizeEditorIdentity(editor)
 
   return blockId
+}
+
+function quoteReferenceInsertText(text: string) {
+  const leadingWhitespaceLength = text.match(/^\s*/)?.[0].length ?? 0
+  const trailingWhitespaceLength = text.match(/\s*$/)?.[0].length ?? 0
+  const leadingWhitespace = text.slice(0, leadingWhitespaceLength)
+  const trailingWhitespace =
+    trailingWhitespaceLength > 0 ? text.slice(text.length - trailingWhitespaceLength) : ""
+  const coreEnd =
+    trailingWhitespaceLength > 0 ? text.length - trailingWhitespaceLength : text.length
+  let core = text.slice(leadingWhitespaceLength, coreEnd)
+
+  if (
+    core.length >= 2 &&
+    OPENING_QUOTE_MARKS.has(core[0]) &&
+    CLOSING_QUOTE_MARKS.has(core[core.length - 1])
+  ) {
+    core = core.slice(1, -1).trim()
+  }
+
+  return `${leadingWhitespace}“${core}”${trailingWhitespace}`
 }

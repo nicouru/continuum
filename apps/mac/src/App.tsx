@@ -24,6 +24,7 @@ import {
   getActiveCitationDetails,
   getActiveReferenceInsertDetails,
   getFirstInlineMathInSelection,
+  getSelectedText,
   joinCurrentBlockToPreviousAphorism,
   makeId,
   markAllParagraphsAsAphorisms,
@@ -64,15 +65,23 @@ import { readPreferences, writePreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
 import {
   ContinuumEditorMenu,
+  type ContinuumEditorMenuLexicalLookup,
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
+import {
+  LexicalLookupError,
+  normalizeSingleSelectedWord,
+} from "@continuum/lexical"
 import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
+import { createContinuumLexicalProvider } from "./lexical-client"
 import "./App.css"
 
 const SIDEBAR_MIN_WIDTH = 250
 const SIDEBAR_MAX_WIDTH = 460
 const SIDEBAR_DEFAULT_WIDTH = 320
+const EDITOR_MENU_WIDTH = 360
+const EDITOR_MENU_MARGIN = 28
 
 const MONTHS_ES = [
   "Enero",
@@ -124,6 +133,16 @@ function bootstrapErrorMessage(error: unknown): string {
   }
   const fallback = String(error)
   return fallback === "[object Object]" ? "No se pudo abrir la base local." : fallback
+}
+
+function lexicalErrorMessage(error: unknown): string {
+  if (error instanceof LexicalLookupError) {
+    return error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return "No se pudo consultar la fuente lexical."
 }
 
 function syncStateLabel(state: NoteMeta["syncState"]) {
@@ -506,6 +525,8 @@ export default function App() {
     x: 0,
     y: 0,
   })
+  const [lexicalLookup, setLexicalLookup] =
+    useState<ContinuumEditorMenuLexicalLookup | null>(null)
   const [citationPreview, setCitationPreview] = useState<{
     citationId: string
     left: number
@@ -526,6 +547,8 @@ export default function App() {
   const editorRef = useRef<Editor | null>(null)
   const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
+  const lexicalAbortRef = useRef<AbortController | null>(null)
+  const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
 
@@ -533,6 +556,7 @@ export default function App() {
   selectedRef.current = selectedId
 
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
+  const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
   const selectedNoteIdSet = useMemo(
@@ -617,13 +641,131 @@ export default function App() {
     }
   }, [editor])
 
-  const openEditorMenuAt = useCallback((x: number, y: number) => {
-    setEditorMenu({ isOpen: true, x, y })
+  useEffect(() => {
+    return () => lexicalAbortRef.current?.abort()
   }, [])
+
+  const getEditorMenuPosition = useCallback(() => {
+    const menuWidth = Math.min(
+      EDITOR_MENU_WIDTH,
+      window.innerWidth - EDITOR_MENU_MARGIN * 2,
+    )
+    const mainRect = mainRef.current?.getBoundingClientRect()
+    const editorRect = mainRef.current
+      ?.querySelector(".continuum-editor-surface .tiptap")
+      ?.getBoundingClientRect()
+    const fallbackX = window.innerWidth - menuWidth - EDITOR_MENU_MARGIN
+    const y = Math.max(EDITOR_MENU_MARGIN, mainRect?.top ?? EDITOR_MENU_MARGIN)
+
+    if (!editorRect) {
+      return { x: fallbackX, y }
+    }
+
+    const rightSpaceStart = editorRect.right + EDITOR_MENU_MARGIN
+    const rightSpaceEnd = window.innerWidth - EDITOR_MENU_MARGIN
+    const rightSpaceWidth = rightSpaceEnd - rightSpaceStart
+    const x =
+      rightSpaceWidth >= menuWidth
+        ? rightSpaceStart + (rightSpaceWidth - menuWidth) / 2
+        : fallbackX
+
+    return { x: Math.max(EDITOR_MENU_MARGIN, Math.min(x, fallbackX)), y }
+  }, [])
+
+  const clearLexicalLookup = useCallback(() => {
+    lexicalAbortRef.current?.abort()
+    lexicalAbortRef.current = null
+    lexicalRequestIdRef.current += 1
+    setLexicalLookup(null)
+  }, [])
+
+  const startLexicalLookupFromSelection = useCallback(() => {
+    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
+
+    lexicalAbortRef.current?.abort()
+    lexicalRequestIdRef.current += 1
+
+    if (!term) {
+      lexicalAbortRef.current = null
+      setLexicalLookup(null)
+      return
+    }
+
+    const requestId = lexicalRequestIdRef.current
+    const controller = new AbortController()
+    lexicalAbortRef.current = controller
+    setLexicalLookup({ status: "loading", term })
+
+    lexicalProvider
+      .lookup(term, { signal: controller.signal })
+      .then((result) => {
+        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
+          return
+        }
+        setLexicalLookup({ result, status: "ready", term })
+      })
+      .catch((error: unknown) => {
+        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
+          return
+        }
+        setLexicalLookup({
+          message: lexicalErrorMessage(error),
+          status: "error",
+          term,
+        })
+      })
+  }, [lexicalProvider])
+
+  const openEditorMenuPanel = useCallback(() => {
+    startLexicalLookupFromSelection()
+    setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
+  }, [getEditorMenuPosition, startLexicalLookupFromSelection])
+
+  const toggleToolsPanel = useCallback(() => {
+    if (editorMenu.isOpen) {
+      setEditorMenu((current) => ({ ...current, isOpen: false }))
+      clearLexicalLookup()
+      return
+    }
+
+    startLexicalLookupFromSelection()
+    setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
+  }, [
+    clearLexicalLookup,
+    editorMenu.isOpen,
+    getEditorMenuPosition,
+    startLexicalLookupFromSelection,
+  ])
 
   const closeEditorMenu = useCallback(() => {
     setEditorMenu((current) => ({ ...current, isOpen: false }))
-  }, [])
+    clearLexicalLookup()
+  }, [clearLexicalLookup])
+
+  useEffect(() => {
+    if (!editorMenu.isOpen) {
+      return
+    }
+
+    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
+
+    if (!term) {
+      if (lexicalLookup) {
+        clearLexicalLookup()
+      }
+      return
+    }
+
+    if (lexicalLookup?.term !== term) {
+      startLexicalLookupFromSelection()
+    }
+  }, [
+    clearLexicalLookup,
+    editorMenu.isOpen,
+    editorRevision,
+    lexicalLookup,
+    startLexicalLookupFromSelection,
+  ])
 
   const closeCitationPreview = useCallback(() => {
     setCitationPreview(null)
@@ -640,9 +782,9 @@ export default function App() {
       closeNoteMenu()
       closeCitationPreview()
       setSidebarSelectionFocus(false)
-      openEditorMenuAt(event.clientX, event.clientY)
+      openEditorMenuPanel()
     },
-    [closeCitationPreview, closeNoteMenu, openEditorMenuAt],
+    [closeCitationPreview, closeNoteMenu, openEditorMenuPanel],
   )
 
   const handleCitationClick = useCallback(
@@ -654,6 +796,16 @@ export default function App() {
     },
     [closeEditorMenu, closeNoteMenu],
   )
+
+  const handleReplaceSelectedWord = useCallback((word: string) => {
+    const currentEditor = editorRef.current
+
+    if (!currentEditor || currentEditor.state.selection.empty) {
+      return
+    }
+
+    currentEditor.chain().focus().insertContent(word).run()
+  }, [])
 
   const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
     const position = clampFloatingMenuPosition(x, y, 240, 56)
@@ -681,22 +833,7 @@ export default function App() {
         return
       }
       event.preventDefault()
-
-      if (editor) {
-        try {
-          const coords = editor.view.coordsAtPos(editor.state.selection.from)
-          openEditorMenuAt(coords.left, coords.bottom + 8)
-          return
-        } catch {
-          // Fall through to the main-pane position.
-        }
-      }
-
-      const rect = mainRef.current?.getBoundingClientRect()
-      openEditorMenuAt(
-        rect ? rect.left + Math.min(360, rect.width / 2) : window.innerWidth / 2,
-        rect ? rect.top + 96 : window.innerHeight / 3,
-      )
+      toggleToolsPanel()
     }
 
     window.addEventListener("keydown", handleKeyDown)
@@ -706,10 +843,9 @@ export default function App() {
     closeCitationPreview,
     closeNoteMenu,
     citationPreview,
-    editor,
     editorMenu.isOpen,
     noteMenu.isOpen,
-    openEditorMenuAt,
+    toggleToolsPanel,
   ])
 
   useEffect(() => {
@@ -1906,6 +2042,7 @@ export default function App() {
           filteredReferences={filteredReferences}
           folder={folder}
           isOpen={editorMenu.isOpen}
+          lexicalLookup={lexicalLookup}
           offline={offline}
           onAddCitation={() => addCitationToSelection(editorRef.current)}
           onAddReference={handleAddReference}
@@ -1944,6 +2081,7 @@ export default function App() {
           onPublishToggle={handlePublishToggle}
           onReferenceSearchChange={setReferenceSearch}
           onRemoveCitation={() => removeCitationFromSelection(editorRef.current)}
+          onReplaceSelectedWord={handleReplaceSelectedWord}
           onRestore={handleRestore}
           onRetrySync={handleRetrySyncNow}
           onSetAppearanceMode={handleSetAppearanceMode}
@@ -2085,6 +2223,25 @@ function CitationPreviewPopover({
   } | null
   onClose: () => void
 }) {
+  const popoverRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (!citationPreview) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && popoverRef.current?.contains(target)) {
+        return
+      }
+      onClose()
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true)
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true)
+  }, [citationPreview, onClose])
+
   if (!activeDraft || !citationPreview) {
     return null
   }
@@ -2102,6 +2259,7 @@ function CitationPreviewPopover({
 
   return (
     <aside
+      ref={popoverRef}
       aria-live="polite"
       className="continuum-citation-preview"
       style={{

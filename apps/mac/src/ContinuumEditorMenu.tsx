@@ -4,16 +4,17 @@ import type {
 } from "@continuum/editor"
 import { formatReferenceLabel } from "@continuum/editor"
 import type { StructuredNoteDraftReference } from "@continuum/core"
+import type { LexicalLookupResult } from "@continuum/lexical"
 import type {
   CSSProperties,
   FormEvent,
-  PointerEvent as ReactPointerEvent,
   ReactNode,
 } from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
-const MENU_WIDTH = 430
-const VIEWPORT_MARGIN = 10
+const MENU_WIDTH = 360
+const VIEWPORT_MARGIN = 28
+type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
 
 function clampMenuPosition(x: number, y: number, width: number, height: number) {
   const menuWidth = Math.min(width, window.innerWidth - VIEWPORT_MARGIN * 2)
@@ -38,6 +39,22 @@ export type ContinuumEditorMenuReferenceInput = {
   workDate: string
 }
 
+export type ContinuumEditorMenuLexicalLookup =
+  | {
+      status: "loading"
+      term: string
+    }
+  | {
+      result: LexicalLookupResult
+      status: "ready"
+      term: string
+    }
+  | {
+      message: string
+      status: "error"
+      term: string
+    }
+
 type ContinuumEditorMenuProps = {
   activeCitation: ActiveCitationDetails | null
   activeReferenceInsert: ActiveReferenceInsertDetails | null
@@ -52,6 +69,7 @@ type ContinuumEditorMenuProps = {
   filteredReferences: readonly StructuredNoteDraftReference[]
   folder: "all" | "trash"
   isOpen: boolean
+  lexicalLookup: ContinuumEditorMenuLexicalLookup | null
   offline: boolean
   onAddCitation: () => void
   onAddReference: (
@@ -73,6 +91,7 @@ type ContinuumEditorMenuProps = {
   onPublishToggle: () => void
   onReferenceSearchChange: (value: string) => void
   onRemoveCitation: () => void
+  onReplaceSelectedWord: (word: string) => void
   onRestore: () => void
   onRetrySync: () => void
   onSetOffline: (value: boolean) => void
@@ -113,6 +132,7 @@ export function ContinuumEditorMenu({
   filteredReferences,
   folder,
   isOpen,
+  lexicalLookup,
   offline,
   onAddCitation,
   onAddReference,
@@ -131,6 +151,7 @@ export function ContinuumEditorMenu({
   onPublishToggle,
   onReferenceSearchChange,
   onRemoveCitation,
+  onReplaceSelectedWord,
   onRestore,
   onRetrySync,
   onSetOffline,
@@ -171,20 +192,17 @@ export function ContinuumEditorMenu({
     })
   const hasActiveReferenceTarget = Boolean(activeCitation || activeReferenceInsert)
   const [menuPosition, setMenuPosition] = useState({ x, y })
-  const dragStateRef = useRef<{
-    pointerId: number
-    startX: number
-    startY: number
-    originX: number
-    originY: number
-  } | null>(null)
+  const [openSection, setOpenSection] = useState<MenuSectionId | null>(
+    hasActiveReferenceTarget ? "references" : "text",
+  )
   const menuRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (isOpen) {
       setMenuPosition({ x, y })
+      setOpenSection(hasActiveReferenceTarget ? "references" : "text")
     }
-  }, [isOpen, x, y])
+  }, [hasActiveReferenceTarget, isOpen, x, y])
 
   useLayoutEffect(() => {
     if (!isOpen || !menuRef.current) {
@@ -196,59 +214,6 @@ export function ContinuumEditorMenu({
       clampMenuPosition(current.x, current.y, MENU_WIDTH, offsetHeight),
     )
   }, [isOpen, x, y])
-
-  useEffect(() => {
-    if (!isOpen) {
-      return
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const drag = dragStateRef.current
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return
-      }
-      const next = clampMenuPosition(
-        drag.originX + (event.clientX - drag.startX),
-        drag.originY + (event.clientY - drag.startY),
-        MENU_WIDTH,
-        menuRef.current?.offsetHeight ?? 720,
-      )
-      setMenuPosition(next)
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
-      const drag = dragStateRef.current
-      if (!drag || event.pointerId !== drag.pointerId) {
-        return
-      }
-      dragStateRef.current = null
-    }
-
-    window.addEventListener("pointermove", handlePointerMove)
-    window.addEventListener("pointerup", handlePointerUp)
-    window.addEventListener("pointercancel", handlePointerUp)
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove)
-      window.removeEventListener("pointerup", handlePointerUp)
-      window.removeEventListener("pointercancel", handlePointerUp)
-    }
-  }, [isOpen])
-
-  const handleHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest("button")) {
-      return
-    }
-    event.preventDefault()
-    dragStateRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: menuPosition.x,
-      originY: menuPosition.y,
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }
 
   if (!isOpen) {
     return null
@@ -294,17 +259,26 @@ export function ContinuumEditorMenu({
         onMouseDown={(event) => event.stopPropagation()}
         style={style}
       >
-        <div
-          className="continuum-menu-header continuum-menu-header-draggable"
-          onPointerDown={handleHeaderPointerDown}
-        >
+        <div className="continuum-menu-header">
           <span>Editor</span>
           <button type="button" onClick={onClose} aria-label="Cerrar menu">
             Esc
           </button>
         </div>
 
-        <MenuSection defaultOpen icon="T" title="Texto">
+        {lexicalLookup ? (
+          <LexicalLookupPanel
+            lookup={lexicalLookup}
+            onReplaceSelectedWord={onReplaceSelectedWord}
+          />
+        ) : null}
+
+        <MenuSection
+          icon="T"
+          isOpen={openSection === "text"}
+          onToggle={() => setOpenSection((current) => (current === "text" ? null : "text"))}
+          title="Texto"
+        >
           <div className="continuum-menu-list">
             <MenuButton icon="A" onClick={onToggleAphorism}>
               Aforismo
@@ -389,8 +363,13 @@ export function ContinuumEditorMenu({
         </MenuSection>
 
         <MenuSection
-          defaultOpen={hasActiveReferenceTarget}
           icon="R"
+          isOpen={openSection === "references"}
+          onToggle={() =>
+            setOpenSection((current) =>
+              current === "references" ? null : "references",
+            )
+          }
           title="Referencias"
         >
           {activeCitation ? (
@@ -433,7 +412,12 @@ export function ContinuumEditorMenu({
           />
         </MenuSection>
 
-        <MenuSection icon="N" title="Nota">
+        <MenuSection
+          icon="N"
+          isOpen={openSection === "note"}
+          onToggle={() => setOpenSection((current) => (current === "note" ? null : "note"))}
+          title="Nota"
+        >
           <label className="continuum-menu-field">
             <span>Fecha escrita</span>
             <input
@@ -475,7 +459,12 @@ export function ContinuumEditorMenu({
           </div>
         </MenuSection>
 
-        <MenuSection icon="↻" title="Sincronizacion">
+        <MenuSection
+          icon="↻"
+          isOpen={openSection === "sync"}
+          onToggle={() => setOpenSection((current) => (current === "sync" ? null : "sync"))}
+          title="Sincronizacion"
+        >
           <div className="continuum-menu-status">
             <span>{syncLabel}</span>
             <small>
@@ -507,7 +496,16 @@ export function ContinuumEditorMenu({
           </MenuButton>
         </MenuSection>
 
-        <MenuSection icon="C" title="Aplicacion">
+        <MenuSection
+          icon="C"
+          isOpen={openSection === "application"}
+          onToggle={() =>
+            setOpenSection((current) =>
+              current === "application" ? null : "application",
+            )
+          }
+          title="Aplicacion"
+        >
           <MenuButton
             icon={appearanceMode === "dark" ? "☼" : "☾"}
             onClick={() => onSetAppearanceMode(appearanceMode === "dark" ? "light" : "dark")}
@@ -525,23 +523,23 @@ export function ContinuumEditorMenu({
 
 function MenuSection({
   children,
-  defaultOpen = false,
   icon,
+  isOpen,
+  onToggle,
   title,
 }: {
   children: ReactNode
-  defaultOpen?: boolean
   icon: string
+  isOpen: boolean
+  onToggle: () => void
   title: string
 }) {
-  const [open, setOpen] = useState(defaultOpen)
-
   return (
-    <details className="continuum-menu-section" open={open}>
+    <details className="continuum-menu-section" open={isOpen}>
       <summary
         onClick={(event) => {
           event.preventDefault()
-          setOpen((current) => !current)
+          onToggle()
         }}
         onMouseDown={(event) => event.preventDefault()}
       >
@@ -555,6 +553,208 @@ function MenuSection({
       </summary>
       <div className="continuum-menu-section-body">{children}</div>
     </details>
+  )
+}
+
+function LexicalLookupPanel({
+  lookup,
+  onReplaceSelectedWord,
+}: {
+  lookup: ContinuumEditorMenuLexicalLookup
+  onReplaceSelectedWord: (word: string) => void
+}) {
+  return (
+    <section className="continuum-lexical-panel" aria-label="Consulta lexical">
+      <div className="continuum-lexical-header">
+        <span>Palabra</span>
+        <strong>{lookup.term}</strong>
+      </div>
+      {lookup.status === "loading" ? (
+        <p className="continuum-lexical-message">Buscando en RAE...</p>
+      ) : null}
+      {lookup.status === "error" ? (
+        <p className="continuum-lexical-message continuum-lexical-message-error">
+          {lookup.message}
+        </p>
+      ) : null}
+      {lookup.status === "ready" ? (
+        <>
+          <LexicalWordList
+            emptyLabel="Sin sinonimos registrados"
+            label="Sinonimos"
+            onSelect={onReplaceSelectedWord}
+            words={lookup.result.synonyms}
+          />
+          <LexicalWordList
+            emptyLabel="Sin antonimos registrados"
+            label="Antonimos"
+            onSelect={onReplaceSelectedWord}
+            words={lookup.result.antonyms}
+          />
+          <div className="continuum-lexical-etymology">
+            <span>Etimologia</span>
+            <p>{lookup.result.etymology ?? "Sin etimologia registrada"}</p>
+          </div>
+          <LexicalDefinitions definitions={lookup.result.definitions} />
+          <LexicalRawSenses rawSenses={lookup.result.rawSenses} />
+          <LexicalLocutions
+            locutions={lookup.result.locutions}
+            onReplaceSelectedWord={onReplaceSelectedWord}
+          />
+          <LexicalSuggestions suggestions={lookup.result.suggestions} />
+          <div className="continuum-lexical-source">
+            Fuente: {lookup.result.source.label}
+          </div>
+        </>
+      ) : null}
+    </section>
+  )
+}
+
+function LexicalDefinitions({
+  definitions,
+}: {
+  definitions: LexicalLookupResult["definitions"]
+}) {
+  if (!definitions.length) {
+    return (
+      <div className="continuum-lexical-group">
+        <span>Acepciones</span>
+        <p>Sin acepciones registradas</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="continuum-lexical-group">
+      <span>Acepciones</span>
+      <ol className="continuum-lexical-definitions">
+        {definitions.slice(0, 5).map((definition, index) => (
+          <li key={`${definition.description}-${index}`}>
+            {definition.description}
+            {definition.category ? <small>{definition.category}</small> : null}
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function LexicalRawSenses({
+  rawSenses,
+}: {
+  rawSenses: readonly string[]
+}) {
+  if (!rawSenses.length) {
+    return null
+  }
+
+  return (
+    <details className="continuum-lexical-details">
+      <summary>Entrada completa</summary>
+      <div className="continuum-lexical-raw-list">
+        {rawSenses.slice(0, 4).map((sense) => (
+          <p key={sense}>{sense}</p>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function LexicalLocutions({
+  locutions,
+  onReplaceSelectedWord,
+}: {
+  locutions: LexicalLookupResult["locutions"]
+  onReplaceSelectedWord: (word: string) => void
+}) {
+  if (!locutions.length) {
+    return null
+  }
+
+  return (
+    <details className="continuum-lexical-details">
+      <summary>Locuciones</summary>
+      <div className="continuum-lexical-locutions">
+        {locutions.slice(0, 4).map((locution) => (
+          <div key={locution.expression} className="continuum-lexical-locution">
+            <strong>{locution.expression}</strong>
+            {locution.definitions[0] ? <p>{locution.definitions[0].description}</p> : null}
+            {locution.synonyms.length ? (
+              <LexicalWordList
+                emptyLabel=""
+                label="Sinonimos"
+                onSelect={onReplaceSelectedWord}
+                words={locution.synonyms.map((item) => item.word)}
+              />
+            ) : null}
+            {locution.antonyms.length ? (
+              <LexicalWordList
+                emptyLabel=""
+                label="Antonimos"
+                onSelect={onReplaceSelectedWord}
+                words={locution.antonyms.map((item) => item.word)}
+              />
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
+function LexicalSuggestions({
+  suggestions,
+}: {
+  suggestions: readonly string[]
+}) {
+  if (!suggestions.length) {
+    return null
+  }
+
+  return (
+    <div className="continuum-lexical-group">
+      <span>Sugerencias</span>
+      <div className="continuum-lexical-chips continuum-lexical-chips-static">
+        {suggestions.map((suggestion) => (
+          <span key={suggestion}>{suggestion}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LexicalWordList({
+  emptyLabel,
+  label,
+  onSelect,
+  words,
+}: {
+  emptyLabel: string
+  label: string
+  onSelect: (word: string) => void
+  words: readonly string[]
+}) {
+  return (
+    <div className="continuum-lexical-group">
+      <span>{label}</span>
+      {words.length ? (
+        <div className="continuum-lexical-chips">
+          {words.map((word) => (
+            <button
+              key={word}
+              type="button"
+              onClick={() => onSelect(word)}
+              onMouseDown={(event) => event.preventDefault()}
+            >
+              {word}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p>{emptyLabel}</p>
+      )}
+    </div>
   )
 }
 

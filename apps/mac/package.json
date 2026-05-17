@@ -13,6 +13,7 @@
   "dependencies": {
     "@continuum/core": "workspace:*",
     "@continuum/editor": "workspace:*",
+    "@continuum/lexical": "workspace:*",
     "@continuum/storage": "workspace:*",
     "@continuum/sync": "workspace:*",
     "@tauri-apps/api": "^2",

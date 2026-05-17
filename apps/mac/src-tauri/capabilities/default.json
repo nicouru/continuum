@@ -18,6 +18,7 @@
         { "url": "http://127.0.0.1:*" },
         { "url": "https://ocurrencias.net" },
         { "url": "https://diario-de-ocurrencias.fly.dev" },
+        { "url": "https://rae-api.com" },
         { "url": "https://*.fly.dev" }
       ]
     }
