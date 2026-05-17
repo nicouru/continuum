@@ -236,20 +236,7 @@ export function applyCorrectionSuggestionToEditor(
     return { status: "unsafe", reason: "No hay editor activo." }
   }
 
-  const fresh = extractSelectionPlainTextMap(editor)
-
-  if (!fresh.ok) {
-    return { status: "stale" }
-  }
-
-  if (
-    fresh.map.selectionFrom !== map.selectionFrom ||
-    fresh.map.selectionTo !== map.selectionTo
-  ) {
-    return { status: "stale" }
-  }
-
-  if (!canSafelyApplySuggestion(fresh.map, suggestion)) {
+  if (!canSafelyApplySuggestion(map, suggestion)) {
     return {
       status: "unsafe",
       reason: "No se puede aplicar esta corrección de forma segura.",
@@ -258,8 +245,8 @@ export function applyCorrectionSuggestionToEditor(
 
   const plainFrom = suggestion.originalOffset
   const plainTo = suggestion.originalOffset + suggestion.originalLength
-  const docFrom = mapPlainOffsetToDocPosition(fresh.map.segments, plainFrom)
-  const docTo = mapPlainOffsetToDocPosition(fresh.map.segments, plainTo)
+  const docFrom = mapPlainOffsetToDocPosition(map.segments, plainFrom)
+  const docTo = mapPlainOffsetToDocPosition(map.segments, plainTo)
 
   if (docFrom === null || docTo === null || docFrom >= docTo) {
     return {
@@ -275,6 +262,12 @@ export function applyCorrectionSuggestionToEditor(
     }
   }
 
+  const currentFragment = editor.state.doc.textBetween(docFrom, docTo, "", getCorrectionLeafText)
+
+  if (currentFragment !== suggestion.original) {
+    return { status: "stale" }
+  }
+
   const marks = getTextMarksForRange(editor, docFrom, docTo)
 
   if (!marks) {
@@ -285,6 +278,7 @@ export function applyCorrectionSuggestionToEditor(
   }
 
   const transaction = editor.state.tr
+  const lengthDelta = suggestion.replacement.length - suggestion.originalLength
 
   if (suggestion.replacement.length > 0) {
     transaction.replaceWith(
@@ -298,6 +292,13 @@ export function applyCorrectionSuggestionToEditor(
 
   try {
     editor.view.dispatch(transaction)
+    const maxPosition = editor.state.doc.content.size
+    const selectionFrom = Math.min(map.selectionFrom, maxPosition)
+    const selectionTo = Math.min(
+      Math.max(selectionFrom, map.selectionTo + lengthDelta),
+      maxPosition,
+    )
+    editor.commands.setTextSelection({ from: selectionFrom, to: selectionTo })
     editor.commands.focus()
   } catch {
     return {

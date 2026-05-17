@@ -257,6 +257,29 @@ describe("rebaseCorrectionSuggestionOffsets", () => {
       status: "stale",
     })
   })
+
+  it("revives stale suggestions when the text is selected again unchanged", () => {
+    const [rebased] = rebaseCorrectionSuggestionOffsets(
+      [
+        {
+          id: "en-el",
+          original: "en",
+          originalLength: "en".length,
+          originalOffset: "esta ".length,
+          replacement: "el",
+          status: "stale" as const,
+        },
+      ],
+      "esta en casa",
+      "esta en casa",
+    )
+
+    expect(rebased).toMatchObject({
+      original: "en",
+      replacement: "el",
+      status: "pending",
+    })
+  })
 })
 
 describe("renderCorrectedPreview", () => {

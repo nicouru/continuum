@@ -154,32 +154,33 @@ export function rebaseCorrectionSuggestionOffsets(
   previousText: string,
   currentText: string,
 ): CorrectionSuggestion[] {
-  if (previousText === currentText) {
-    return refreshCorrectionSuggestionStatuses(suggestions, currentText)
-  }
-
   return suggestions.map((suggestion) => {
-    if (suggestion.status !== "pending") {
+    if (suggestion.status !== "pending" && suggestion.status !== "stale") {
       return suggestion
     }
+
+    const rebasedSuggestion =
+      suggestion.status === "stale"
+        ? { ...suggestion, status: "pending" as const }
+        : suggestion
 
     const directMatch = currentText.slice(
-      suggestion.originalOffset,
-      suggestion.originalOffset + suggestion.originalLength,
+      rebasedSuggestion.originalOffset,
+      rebasedSuggestion.originalOffset + rebasedSuggestion.originalLength,
     )
 
-    if (directMatch === suggestion.original) {
-      return suggestion
+    if (directMatch === rebasedSuggestion.original) {
+      return rebasedSuggestion
     }
 
-    const occurrences = findOccurrences(currentText, suggestion.original)
+    const occurrences = findOccurrences(currentText, rebasedSuggestion.original)
 
     if (occurrences.length === 0) {
-      return { ...suggestion, status: "stale" as const }
+      return { ...rebasedSuggestion, status: "stale" as const }
     }
 
     if (occurrences.length === 1) {
-      return { ...suggestion, originalOffset: occurrences[0]! }
+      return { ...rebasedSuggestion, originalOffset: occurrences[0]! }
     }
 
     const scored = occurrences
@@ -188,11 +189,11 @@ export function rebaseCorrectionSuggestionOffsets(
         score: scoreOccurrenceContext(
           previousText,
           currentText,
-          suggestion.originalOffset,
+          rebasedSuggestion.originalOffset,
           offset,
-          suggestion.originalLength,
+          rebasedSuggestion.originalLength,
         ),
-        distance: Math.abs(offset - suggestion.originalOffset),
+        distance: Math.abs(offset - rebasedSuggestion.originalOffset),
       }))
       .sort((left, right) => {
         if (right.score !== left.score) {
@@ -204,10 +205,10 @@ export function rebaseCorrectionSuggestionOffsets(
     const [best, second] = scored
 
     if (!best || best.score === 0 || (second && second.score === best.score)) {
-      return { ...suggestion, status: "stale" as const }
+      return { ...rebasedSuggestion, status: "stale" as const }
     }
 
-    return { ...suggestion, originalOffset: best.offset }
+    return { ...rebasedSuggestion, originalOffset: best.offset }
   })
 }
 

@@ -370,6 +370,39 @@ describe("extractSelectionPlainTextMap", () => {
     editor.destroy()
   })
 
+  it("applies an equal-length correction even if the editor selection moved to the panel", () => {
+    const editor = makeParagraphEditor(["esta en casa"])
+    const [range] = getTextRanges(editor)
+    editor.commands.setTextSelection({ from: range!.from, to: range!.to })
+
+    const extraction = extractSelectionPlainTextMap(editor)
+    expect(extraction.ok).toBe(true)
+    if (!extraction.ok) {
+      editor.destroy()
+      return
+    }
+
+    editor.commands.setTextSelection(range!.from)
+
+    const suggestion = makeSuggestion({
+      original: "en",
+      replacement: "el",
+      originalOffset: "esta ".length,
+      originalLength: "en".length,
+    })
+
+    expect(applyCorrectionSuggestionToEditor(editor, extraction.map, suggestion)).toEqual({
+      status: "applied",
+    })
+
+    const afterApply = extractSelectionPlainTextMap(editor)
+    expect(afterApply.ok).toBe(true)
+    if (afterApply.ok) {
+      expect(afterApply.map.plainText).toBe("esta el casa")
+    }
+    editor.destroy()
+  })
+
   it("can apply multiple suggestions one by one after text length changes", () => {
     const editor = makeParagraphEditor(["sobre valorar esas esar"])
     const [range] = getTextRanges(editor)
