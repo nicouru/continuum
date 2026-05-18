@@ -101,6 +101,7 @@ import {
 import { useAiSelectionHighlight } from "./use-ai-selection-highlight"
 import { useContinuumPreferencesState } from "./use-continuum-preferences-state"
 import { useContinuumKeyboardShortcuts } from "./use-continuum-keyboard-shortcuts"
+import { useEditorRevision } from "./use-editor-revision"
 import { useLexicalLookup } from "./use-lexical-lookup"
 import { useAiCorrectionSessions } from "./use-ai-correction-sessions"
 import { useSidebarResize } from "./use-sidebar-resize"
@@ -531,7 +532,7 @@ export default function App() {
   const [syncBusy, setSyncBusy] = useState(false)
   const [offline, setOffline] = useState(false)
   const [editor, setEditor] = useState<Editor | null>(null)
-  const [editorRevision, setEditorRevision] = useState(0)
+  const editorRevision = useEditorRevision(editor)
   const [referenceSearch, setReferenceSearch] = useState("")
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
@@ -674,21 +675,6 @@ export default function App() {
     setSyncStatus(status)
     setConflicts(openConflicts)
   }, [repo])
-
-  useEffect(() => {
-    if (!editor) {
-      return
-    }
-    const bumpRevision = () => setEditorRevision((value) => value + 1)
-    editor.on("selectionUpdate", bumpRevision)
-    editor.on("update", bumpRevision)
-    bumpRevision()
-
-    return () => {
-      editor.off("selectionUpdate", bumpRevision)
-      editor.off("update", bumpRevision)
-    }
-  }, [editor])
 
   useEffect(() => {
     return () => {
