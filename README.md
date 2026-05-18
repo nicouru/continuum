@@ -1,202 +1,81 @@
-# Continuum
+# Canon Lab
 
-Continuum is the Mac-first authoring app for Diario de Ocurrencias.
+Canon Lab es un laboratorio tipográfico para decidir una fuente de lectura prolongada usando textos reales, comparación ciega y votos ponderados. El objetivo del MVP es **cerrar decisiones**, no explorar infinitas combinaciones.
 
-It is designed to replace Ulysses as the primary writing interface while
-preserving the structured editing model already used by the Diario web editor:
-paragraphs, aphorisms, citations/superscripts, references, reference inserts,
-inline math, manual indents, written dates, stable IDs, drafts and explicit
-publishing through Diario.
+## Qué hace
 
-## Status
+- Crear experimentos tipográficos con textos reales y variantes editables.
+- Comparar variantes en modo ciego (sin mostrar el nombre de la fuente).
+- Puntuar cada combinación texto × variante con tres criterios (1–5).
+- Ver ranking agregado con score calculado.
+- Elegir ganadora, congelar la decisión por 30 días y exportar CSS.
 
-This repository contains the first MVP implementation.
-
-Implemented:
-
-- pnpm monorepo with `apps/mac` and shared packages.
-- Tauri 2 + React + Vite desktop shell.
-- TipTap-based editor package adapted from the Diario editor model.
-- Local SQLite schema and repositories.
-- Local autosave and manual draft save.
-- Emergency current-note draft file.
-- Trash and restore.
-- Real Diario login from the desktop app.
-- Persistent sync queue with retry/backoff.
-- Diario HTTP draft sync client.
-- Remote draft import on login.
-- Online Diario draft seed for new notes when authenticated.
-- Remote revision checks for Diario draft pushes.
-- Conflict surface with keep-local, use-remote, and duplicate-local resolution.
-- Split Vite vendor chunks for React, TipTap/ProseMirror, and KaTeX.
-- Explicit publish/unpublish action through Diario's admin lifecycle command.
-- Structured note validation/conversion tests.
-
-Mocked or deferred:
-
-- Search UI and SQLite FTS5 migrations.
-- Full visual parity audit against Diario edge cases.
-- Production app icon/branding pass.
-
-## Repository Shape
-
-```txt
-apps/
-  mac/              Tauri + React app shell
-packages/
-  core/             Structured note types, validation, normalization, IDs
-  editor/           TipTap extensions, actions, conversions, editor component
-  storage/          SQLite schema, repositories, revisions, emergency helpers
-  sync/             Sync states, mock remote client, conflict detection
-docs/               Architecture and product notes
-```
-
-## Source Reference
-
-The editor behavior is based on the current Diario repo:
-
-```txt
-https://github.com/nicouru/diario-de-ocurrencias.git
-branch: codex/work
-```
-
-Important source areas used as references include:
-
-- `src/components/AdminTipTapPrototype.tsx`
-- `src/components/AdminTipTapExtensions.tsx`
-- `src/components/AdminTipTapEditor*`
-- `src/components/tiptap-editor/*`
-- `src/components/tiptap-toolbar/*`
-- `src/admin/structured-note-draft/*`
-- `src/admin/tiptap-document.ts`
-- `src/admin/tiptap-autosave.ts`
-- `src/server/structured-note-draft-api-handlers.ts`
-- `src/app/api/admin/v1/tiptap-draft/route.ts`
-
-The Diario repo is the source of truth for future parity checks.
-
-## Install
+## Cómo correrlo
 
 ```bash
-pnpm install
+npm install
+npm run dev
 ```
 
-## Development
+Abrí [http://localhost:3000](http://localhost:3000).
 
-Vite-only development:
+### Validación
 
 ```bash
-pnpm dev
+npm run typecheck
+npm run lint
+npm run test
+npm run build
 ```
 
-The browser-only Vite app cannot access Tauri SQLite APIs, so it will show the
-fallback error telling you to run through Tauri.
+## Dónde se guardan los datos
 
-Desktop development:
-
-```bash
-pnpm tauri:dev
-```
-
-Native bundle:
-
-```bash
-pnpm tauri:build
-```
-
-The Tauri commands require a working Rust toolchain.
-Successful macOS builds produce:
+Persistencia local en JSON (sin base de datos):
 
 ```txt
-apps/mac/src-tauri/target/release/bundle/macos/Continuum.app
-apps/mac/src-tauri/target/release/bundle/dmg/Continuum_0.1.0_aarch64.dmg
+data/canon-lab/experiments.json
 ```
 
-## Validation
+- Se crea automáticamente al primer acceso.
+- Si no existe, se genera un experimento demo con 5 textos y 5 variantes editables.
+- Las escrituras usan archivo temporal + rename para evitar corrupción.
+- Si el JSON está corrupto, la app muestra un error claro (no crashea en silencio).
 
-```bash
-pnpm typecheck
-pnpm test
-pnpm build
-cd apps/mac/src-tauri && cargo check
-```
+## Cómo agregar fuentes
 
-Current build note: Vite vendor chunk splitting is enabled for React,
-TipTap/ProseMirror, and KaTeX, so the old single large editor chunk warning is
-resolved for the production build.
+1. Abrí un experimento → **Nueva variante** (o editá una existente).
+2. Completá `fontFamily` y, si hace falta, `fontImportUrl` (por ejemplo Google Fonts).
+3. Ajustá peso, tamaño, interlineado, tracking, word spacing, ancho y color.
+4. Usá la vista previa con un texto real del experimento.
 
-## Storage
+## Flujo manual verificado (MVP)
 
-SQLite is the primary local note database.
+1. Crear experimento (`/experiments/new`).
+2. Agregar textos reales en la página del experimento.
+3. Agregar o editar variantes tipográficas.
+4. **Iniciar comparación ciega** → votar todos los criterios para cada variante y texto.
+5. **Terminar sesión** (exige votos completos).
+6. **Ver resultados** → ranking con nombres reales de fuente.
+7. Elegir ganadora y nota de decisión.
+8. **Congelar por 30 días** (requiere votos y ganadora).
+9. **Exportar CSS** desde la página de exportación.
+10. Recargar el navegador y confirmar que todo persiste en `data/canon-lab/experiments.json`.
 
-The schema stores:
+## Exportar CSS
 
-- note metadata;
-- structured draft JSON;
-- TipTap JSON;
-- plain text and excerpt;
-- local/remote version metadata;
-- revisions;
-- reference and citation indexes;
-- sync queue/conflicts.
+Con variante ganadora definida, abrí `/experiments/[id]/export`. El bloque incluye variables `:root` y clase `.body-text`, más `font-variation-settings` si aplica.
 
-Tauri Store is only for small UI preferences. The emergency draft file is only a
-temporary recovery layer for the active note.
-
-## Sync
-
-Architecture note: see
-[`docs/sync-architecture.md`](docs/sync-architecture.md) for the source-of-truth
-model, cross-device sync expectations, save timing, conflict policy, and Fly
-operating assumptions.
-
-Save and autosave always mean draft. They never publish. Publishing and
-unpublishing are explicit lifecycle actions and are sent through Diario's admin
-command API only after the current draft has been synced.
-
-Continuum now uses an in-app Diario login. The default target is
-`https://ocurrencias.net`; a dev base URL can still be provided through
-`VITE_DIARIO_ADMIN_BASE_URL`.
-
-The current Diario endpoint is:
+## Fórmula de score
 
 ```txt
-POST /api/admin/v1/tiptap-draft
-body: { "draft": StructuredNoteDraft, "baseRemoteRevision": number }
+score = readability30m - pretentiousness * 0.65 - fontDominatesText * 0.8
 ```
 
-Publishing uses Diario's lifecycle command endpoint:
+## Limitaciones del MVP
 
-```txt
-POST /api/admin/v1/commands
-body: { "command": { "noteId": "<id>", "type": "note:publish" } }
-body: { "command": { "noteId": "<id>", "type": "note:unpublish" } }
-```
-
-The app sends that request through the Tauri HTTP plugin with the stored Diario
-session cookie. Current Diario admin writes require the web backend to be
-configured for local SQLite writes and admin write mode.
-
-Continuum also reads the Diario draft metadata through
-`GET /api/admin/v1/tiptap-draft?noteId=<id>` and stores the returned
-`remoteRevision` locally as `remoteVersion`. A `409 conflict` response means the
-server moved forward from another client and the local note is marked as a sync
-conflict instead of being overwritten.
-
-On login, Continuum imports remote Diario drafts with:
-
-```txt
-GET /api/admin/v1/notes
-GET /api/admin/v1/tiptap-draft?noteId=<id>
-```
-
-It skips local notes that already have unpushed changes, errors, or conflicts.
-
-Never commit real admin cookies, passwords, or secrets. The app must never
-connect directly to the production database.
-
-## Next Review Items
-
-- Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
-- Add SQLite FTS5 migrations after the search model is ready.
-- Exercise the app through `pnpm tauri:dev` on macOS with real writing sessions.
+- Sin autenticación ni multiusuario.
+- Sin base de datos (solo JSON local en disco).
+- Sin analytics ni servicios externos (excepto cargar fuentes vía URL que vos configures).
+- Una sesión ciega abierta por vez; para otra ronda, terminá la sesión actual.
+- El peso tipográfico 350 depende de fuentes variables (Open Sans / Source Sans 3); en fuentes sin ese eje, el navegador aproxima.
+- Congelar bloquea edición; no hay descongelar automático al vencer los 30 días (solo referencia visual de `freezeUntil`).

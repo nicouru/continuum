@@ -1,23 +1,30 @@
 {
-  "name": "continuum",
+  "name": "canon-lab",
+  "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "typecheck": "pnpm -r typecheck",
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "build": "pnpm -r build",
-    "dev": "pnpm --filter @continuum/mac dev",
-    "tauri:dev": "pnpm --filter @continuum/mac tauri dev",
-    "tauri:build": "pnpm --filter @continuum/mac tauri build"
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "typescript": "~5.8.3",
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5",
     "vitest": "^3.2.4"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3"
-    ]
   }
 }
