@@ -10,7 +10,7 @@ import type {
   FormEvent,
   ReactNode,
 } from "react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 const VIEWPORT_MARGIN = 28
 type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
@@ -66,6 +66,7 @@ type ContinuumEditorMenuProps = {
   canRetrySync: boolean
   creatingReference?: boolean
   filteredReferences: readonly StructuredNoteDraftReference[]
+  referenceLibrary: readonly StructuredNoteDraftReference[]
   folder: "all" | "trash"
   isOpen: boolean
   lexicalLookup: ContinuumEditorMenuLexicalLookup | null
@@ -130,6 +131,7 @@ export function ContinuumEditorMenu({
   canRetrySync,
   creatingReference = false,
   filteredReferences,
+  referenceLibrary,
   folder,
   isOpen,
   lexicalLookup,
@@ -411,6 +413,7 @@ export function ContinuumEditorMenu({
             mode={hasActiveReferenceTarget ? "active-target" : "library"}
             onChange={setReferenceInput}
             onSubmit={submitReference}
+            referenceLibrary={referenceLibrary}
           />
         </MenuSection>
 
@@ -856,6 +859,7 @@ function ReferenceCreateForm({
   mode,
   onChange,
   onSubmit,
+  referenceLibrary,
 }: {
   creatingReference: boolean
   input: ContinuumEditorMenuReferenceInput
@@ -865,7 +869,26 @@ function ReferenceCreateForm({
     event: FormEvent<HTMLFormElement>,
     mode: "library" | "active-target",
   ) => void
+  referenceLibrary: readonly StructuredNoteDraftReference[]
 }) {
+  const authorSuggestions = useMemo(
+    () => [...new Set(referenceLibrary.map((r) => r.author).filter(Boolean))].sort() as string[],
+    [referenceLibrary],
+  )
+
+  const handleAuthorChange = (author: string) => {
+    const match = referenceLibrary.find((r) => r.author === author)
+    onChange({
+      ...input,
+      author,
+      ...(match
+        ? {
+            authorBirthYear: match.authorBirthYear?.toString() ?? input.authorBirthYear,
+            authorDeathYear: match.authorDeathYear?.toString() ?? input.authorDeathYear,
+          }
+        : {}),
+    })
+  }
   const submitLabel =
     mode === "active-target" ? "Crear y asociar referencia" : "Crear referencia"
 
@@ -879,9 +902,15 @@ function ReferenceCreateForm({
         <span>Autor</span>
         <input
           type="text"
+          list="reference-author-suggestions"
           value={input.author}
-          onChange={(event) => onChange({ ...input, author: event.currentTarget.value })}
+          onChange={(event) => handleAuthorChange(event.currentTarget.value)}
         />
+        <datalist id="reference-author-suggestions">
+          {authorSuggestions.map((author) => (
+            <option key={author} value={author} />
+          ))}
+        </datalist>
       </label>
       <label className="continuum-menu-field">
         <span>Obra</span>
@@ -926,7 +955,9 @@ function ReferenceCreateForm({
           <label className="continuum-menu-field">
             <span>Nac.</span>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9-]*"
               value={input.authorBirthYear}
               onChange={(event) =>
                 onChange({ ...input, authorBirthYear: event.currentTarget.value })
@@ -936,7 +967,9 @@ function ReferenceCreateForm({
           <label className="continuum-menu-field">
             <span>Muerte</span>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9-]*"
               value={input.authorDeathYear}
               onChange={(event) =>
                 onChange({ ...input, authorDeathYear: event.currentTarget.value })
