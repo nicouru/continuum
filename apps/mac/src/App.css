@@ -43,7 +43,7 @@
   --continuum-editor-reference-missing: #ff736f;
   --continuum-editor-superscript: rgba(255, 255, 255, 0.8577);
   --continuum-editor-ink-bleed: none;
-  --continuum-editor-smoothing: antialiased;
+  --continuum-editor-smoothing: auto;
   --continuum-hairline: rgb(100 100 100 / 0.5);
   display: flex;
   height: 100vh;
@@ -60,7 +60,7 @@
 }
 
 .continuum-shell[data-theme="light"] {
-  --continuum-editor-page-bg: #fffdfa;
+  --continuum-editor-page-bg: #ffffff;
   --continuum-editor-text: rgb(0 0 0);
   --continuum-editor-soft: rgba(0, 0, 0, 0.85);
   --continuum-editor-muted: rgba(0, 0, 0, 0.58);
@@ -1217,10 +1217,10 @@ button:disabled {
   --continuum-editor-text-padding: clamp(18px, 3vw, 32px);
   box-sizing: content-box;
   width: min(
-    29.5rem,
+    36rem,
     calc(100% - var(--continuum-editor-text-padding) - var(--continuum-editor-text-padding))
   );
-  max-width: 29.5rem;
+  max-width: 36rem;
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
@@ -1236,27 +1236,28 @@ button:disabled {
     system-ui,
     sans-serif;
   font-kerning: normal;
-  font-size: 1.07rem;
-  font-weight: 291;
-  font-optical-sizing: auto;
-  font-feature-settings: "kern" 1, "liga" 1, "onum" 1, "pnum" 1;
-  font-variation-settings: "opsz" 37;
-  font-variant-ligatures: common-ligatures;
+  font-size: 1.11rem;
+  font-weight: 300;
+  font-optical-sizing: none;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
+  font-variation-settings: "opsz" 18;
+  font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: oldstyle-nums proportional-nums;
   hyphens: auto;
   hyphenate-limit-chars: 6 3 3;
-  letter-spacing: 0.010em;
-  line-height: 1.23;
+  letter-spacing: 0.001em;
+  line-height: 1.26;
   orphans: 2;
   text-align: justify;
-  text-justify: inter-word;
-  text-rendering: optimizeLegibility;
+  text-justify: auto;
+  text-rendering: auto;
   text-shadow: var(--continuum-editor-ink-bleed);
+  text-wrap: pretty;
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: -0.007em;
-  -moz-osx-font-smoothing: grayscale;
+  word-spacing: -0.010em;
+  -moz-osx-font-smoothing: auto;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
   -webkit-hyphens: auto;
 }
@@ -1299,13 +1300,13 @@ button:disabled {
     system-ui,
     sans-serif;
   font-size: 1.08em;
-  font-variant-ligatures: discretionary-ligatures;
-  font-feature-settings: "onum" 1, "pnum" 1;
+  font-variant-ligatures: common-ligatures contextual;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
   font-variant-numeric: oldstyle-nums proportional-nums;
-  font-weight: 291;
-  font-optical-sizing: auto;
-  font-variation-settings: "opsz" 37;
-  letter-spacing: 0.010em;
+  font-weight: 300;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 18;
+  letter-spacing: 0.001em;
   margin-bottom: 1.62rem;
   opacity: 1;
   text-align: center;
@@ -1317,12 +1318,13 @@ button:disabled {
 
 .continuum-editor-surface .tiptap h2 {
   font-size: 2.19rem;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
   font-weight: 455;
-  font-optical-sizing: auto;
-  font-variant-ligatures: discretionary-ligatures;
+  font-optical-sizing: none;
+  font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: lining-nums proportional-nums;
   font-variation-settings: "opsz" 42;
-  letter-spacing: -0.019em;
+  letter-spacing: 0em;
   line-height: 1.02;
 }
 
