@@ -835,6 +835,7 @@ button:disabled {
     "Times New Roman",
     serif;
   font-kerning: normal;
+  font-synthesis: none;
   font-size: 19px;
   font-weight: 400;
   font-feature-settings: "kern" 1, "liga" 1, "onum" 1, "pnum" 1;
@@ -845,6 +846,7 @@ button:disabled {
   letter-spacing: 0.005em;
   line-height: 1.35;
   orphans: 2;
+  overflow-wrap: break-word;
   text-align: justify;
   text-justify: inter-word;
   text-rendering: optimizeLegibility;
