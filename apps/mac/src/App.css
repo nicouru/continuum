@@ -1215,12 +1215,14 @@ button:disabled {
 
 .continuum-editor-surface .tiptap {
   --continuum-editor-text-padding: clamp(18px, 3vw, 32px);
+  /* The visual lab reference renders a 500px text column despite its 36rem slider value. */
+  --continuum-editor-text-measure: 500px;
   box-sizing: content-box;
   width: min(
-    36rem,
+    var(--continuum-editor-text-measure),
     calc(100% - var(--continuum-editor-text-padding) - var(--continuum-editor-text-padding))
   );
-  max-width: 36rem;
+  max-width: var(--continuum-editor-text-measure);
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
