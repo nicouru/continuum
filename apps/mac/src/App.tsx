@@ -848,6 +848,24 @@ export default function App() {
         return next
       }
 
+      if (
+        current.status === "ready" &&
+        current.session?.noteId === identity.noteId &&
+        current.originalText === identity.map.plainText
+      ) {
+        const next: AiCorrectionReadyState = {
+          ...current,
+          session: {
+            key: identity.key,
+            noteId: identity.noteId,
+            selectionKey: identity.selectionKey,
+          },
+          map: identity.map,
+        }
+        persistAiCorrectionState(next)
+        return next
+      }
+
       const cached = findAiCorrectionSession(identity.key)
 
       if (!cached) {
