@@ -17,7 +17,9 @@ npm install
 npm run dev
 ```
 
-Abrí [http://localhost:3000](http://localhost:3000).
+Abrí [http://localhost:3001](http://localhost:3001).
+
+> Si el puerto 3000 ya lo usa otro proyecto (p. ej. Diario), Canon Lab usa **3001** por defecto.
 
 ### Validación
 
