@@ -7,45 +7,24 @@
 }
 
 @font-face {
-  font-family: "Lato Continuum";
+  font-family: "Newsreader Continuum";
   font-style: normal;
-  font-weight: 300;
+  font-weight: 200 800;
   font-display: swap;
-  src: url("./assets/fonts/lato/Lato-Light-latin.woff2") format("woff2");
+  src: url("./assets/fonts/newsreader/Newsreader-variable-latin.woff2")
+    format("woff2");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
     U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
     U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 @font-face {
-  font-family: "Lato Continuum";
+  font-family: "Newsreader Continuum";
   font-style: normal;
-  font-weight: 300;
+  font-weight: 200 800;
   font-display: swap;
-  src: url("./assets/fonts/lato/Lato-Light-latin-ext.woff2") format("woff2");
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
-    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
-    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
-    U+A720-A7FF;
-}
-
-@font-face {
-  font-family: "Lato Continuum";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("./assets/fonts/lato/Lato-Regular-latin.woff2") format("woff2");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
-    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: "Lato Continuum";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("./assets/fonts/lato/Lato-Regular-latin-ext.woff2") format("woff2");
+  src: url("./assets/fonts/newsreader/Newsreader-variable-latin-ext.woff2")
+    format("woff2");
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
     U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
     U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
@@ -1248,8 +1227,8 @@ button:disabled {
   padding: var(--continuum-editor-text-padding);
   color: var(--continuum-editor-text);
   font-family:
-    "Lato Continuum",
-    Lato,
+    "Newsreader Continuum",
+    Newsreader,
     -apple-system,
     BlinkMacSystemFont,
     "SF Pro Text",
@@ -1257,15 +1236,17 @@ button:disabled {
     system-ui,
     sans-serif;
   font-kerning: normal;
-  font-size: 0.95rem;
-  font-weight: 300;
+  font-size: 1.07rem;
+  font-weight: 291;
+  font-optical-sizing: auto;
   font-feature-settings: "kern" 1, "liga" 1, "onum" 1, "pnum" 1;
+  font-variation-settings: "opsz" 37;
   font-variant-ligatures: common-ligatures;
   font-variant-numeric: oldstyle-nums proportional-nums;
   hyphens: auto;
   hyphenate-limit-chars: 6 3 3;
-  letter-spacing: 0;
-  line-height: 1.2;
+  letter-spacing: 0.010em;
+  line-height: 1.23;
   orphans: 2;
   text-align: justify;
   text-justify: inter-word;
@@ -1274,14 +1255,14 @@ button:disabled {
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: 0.002em;
+  word-spacing: -0.007em;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
   -webkit-hyphens: auto;
 }
 
 .continuum-editor-surface .tiptap p {
-  margin: 0 0 1.4rem;
+  margin: 0 0 1.2rem;
 }
 
 .continuum-editor-surface .tiptap p[data-node-type="aphorism"] {
@@ -1309,8 +1290,8 @@ button:disabled {
   content: attr(data-aphorism-label);
   display: block;
   font-family:
-    "Lato Continuum",
-    Lato,
+    "Newsreader Continuum",
+    Newsreader,
     -apple-system,
     BlinkMacSystemFont,
     "SF Pro Text",
@@ -1321,8 +1302,10 @@ button:disabled {
   font-variant-ligatures: discretionary-ligatures;
   font-feature-settings: "onum" 1, "pnum" 1;
   font-variant-numeric: oldstyle-nums proportional-nums;
-  font-weight: 300;
-  letter-spacing: 0;
+  font-weight: 291;
+  font-optical-sizing: auto;
+  font-variation-settings: "opsz" 37;
+  letter-spacing: 0.010em;
   margin-bottom: 1.62rem;
   opacity: 1;
   text-align: center;
@@ -1333,12 +1316,14 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap h2 {
-  font-size: 1.6rem;
-  font-weight: 400;
+  font-size: 2.19rem;
+  font-weight: 455;
+  font-optical-sizing: auto;
   font-variant-ligatures: discretionary-ligatures;
   font-variant-numeric: lining-nums proportional-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.01;
+  font-variation-settings: "opsz" 42;
+  letter-spacing: -0.019em;
+  line-height: 1.02;
 }
 
 .continuum-editor-surface .tiptap .versalitas {
