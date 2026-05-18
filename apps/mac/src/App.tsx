@@ -72,7 +72,6 @@ import {
 } from "./ContinuumEditorMenu"
 import {
   CorrectionError,
-  createCorrectionSuggestions,
   refreshCorrectionSuggestionStatuses,
   shiftSuggestionOffsets,
   type CorrectionSuggestion,
@@ -82,6 +81,7 @@ import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
 import { ContinuumAiPanel } from "./ContinuumAiPanel"
 import {
   createReadyAiCorrectionState,
+  createReadyAiCorrectionStateFromResult,
   getAiCorrectionSelectionIdentity,
   isAiCorrectionSelectionError,
   refreshReadyAiCorrectionForIdentity,
@@ -961,24 +961,11 @@ export default function App() {
         return
       }
 
-      const next: AiCorrectionReadyState = {
-        status: "ready",
-        session: {
-          key: identity.key,
-          noteId: identity.noteId,
-          selectionKey: identity.selectionKey,
-        },
-        sourceText: result.originalText,
-        originalText: result.originalText,
-        correctedText: result.correctedText,
-        warnings: result.warnings,
-        suggestions: createCorrectionSuggestions(
-          result.originalText,
-          result.correctedText,
-        ),
-        map: currentIdentity.map,
-        usage: result.usage,
-      }
+      const next = createReadyAiCorrectionStateFromResult(
+        identity,
+        result,
+        currentIdentity.map,
+      )
       setAiCorrection(next)
       persistAiCorrectionState(next)
     } catch (error: unknown) {

@@ -7,6 +7,7 @@ import type {
 import type { SelectionPlainTextMap } from "@continuum/editor"
 import {
   createReadyAiCorrectionState,
+  createReadyAiCorrectionStateFromResult,
   getAiCorrectionSelectionIdentity,
   refreshReadyAiCorrectionForIdentity,
   type AiCorrectionSelectionIdentity,
@@ -240,5 +241,50 @@ describe("refreshReadyAiCorrectionForIdentity", () => {
     const otherIdentity = makeIdentity("note-a", "block-b", "otro texto")
 
     expect(refreshReadyAiCorrectionForIdentity(current, otherIdentity)).toBeNull()
+  })
+})
+
+describe("createReadyAiCorrectionStateFromResult", () => {
+  it("creates pending suggestions from an OpenAI correction result", () => {
+    const identity = makeIdentity("note-a", "block-a", "esta linea")
+    const ready = createReadyAiCorrectionStateFromResult(
+      identity,
+      {
+        correctedText: "está línea",
+        originalText: "esta linea",
+        source: { id: "openai", label: "OpenAI" },
+        usage: { inputTokens: 10 },
+        warnings: ["warning"],
+      },
+      identity.map,
+    )
+
+    expect(ready).toMatchObject({
+      correctedText: "está línea",
+      originalText: "esta linea",
+      session: {
+        key: "note-a:block-a",
+        noteId: "note-a",
+        selectionKey: "block-a",
+      },
+      sourceText: "esta linea",
+      status: "ready",
+      usage: { inputTokens: 10 },
+      warnings: ["warning"],
+    })
+    expect(ready.suggestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          original: "esta",
+          replacement: "está",
+          status: "pending",
+        }),
+        expect.objectContaining({
+          original: "linea",
+          replacement: "línea",
+          status: "pending",
+        }),
+      ]),
+    )
   })
 })

@@ -4,7 +4,9 @@ import {
   type SelectionPlainTextMap,
 } from "@continuum/editor"
 import {
+  createCorrectionSuggestions,
   rebaseCorrectionSuggestionOffsets,
+  type CorrectionResult,
   type CorrectionSessionIdentity,
   type CorrectionSessionRecord,
   type CorrectionSuggestion,
@@ -129,6 +131,31 @@ export function createReadyAiCorrectionState(
     ),
     map: identity.map,
     usage: session.usage,
+  }
+}
+
+export function createReadyAiCorrectionStateFromResult(
+  identity: AiCorrectionSelectionIdentity,
+  result: CorrectionResult,
+  map: SelectionPlainTextMap,
+): AiCorrectionReadyState {
+  return {
+    status: "ready",
+    session: {
+      key: identity.key,
+      noteId: identity.noteId,
+      selectionKey: identity.selectionKey,
+    },
+    sourceText: result.originalText,
+    originalText: result.originalText,
+    correctedText: result.correctedText,
+    warnings: result.warnings,
+    suggestions: createCorrectionSuggestions(
+      result.originalText,
+      result.correctedText,
+    ),
+    map,
+    usage: result.usage,
   }
 }
 
