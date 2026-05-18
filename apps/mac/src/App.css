@@ -6,9 +6,55 @@
   src: url("./assets/fonts/sabon-pro-roman/SabonProRoman.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Lato Continuum";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("./assets/fonts/lato/Lato-Light-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato Continuum";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("./assets/fonts/lato/Lato-Light-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Lato Continuum";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/Lato-Regular-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lato Continuum";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/lato/Lato-Regular-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
 .continuum-shell {
   --continuum-editor-page-bg: #050505;
-  --continuum-editor-text: rgba(255, 251, 242, 0.89);
+  --continuum-editor-text: rgb(255 251 242);
   --continuum-editor-soft: #b8c7d5;
   --continuum-editor-muted: #9fb2c5;
   --continuum-editor-link: #8ec5ff;
@@ -36,7 +82,7 @@
 
 .continuum-shell[data-theme="light"] {
   --continuum-editor-page-bg: #fffdfa;
-  --continuum-editor-text: rgba(0, 0, 0, 0.89);
+  --continuum-editor-text: rgb(0 0 0);
   --continuum-editor-soft: rgba(0, 0, 0, 0.85);
   --continuum-editor-muted: rgba(0, 0, 0, 0.58);
   --continuum-editor-link: #2f6f9f;
@@ -1192,34 +1238,34 @@ button:disabled {
   --continuum-editor-text-padding: clamp(18px, 3vw, 32px);
   box-sizing: content-box;
   width: min(
-    500px,
+    29.5rem,
     calc(100% - var(--continuum-editor-text-padding) - var(--continuum-editor-text-padding))
   );
-  max-width: 500px;
+  max-width: 29.5rem;
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
   padding: var(--continuum-editor-text-padding);
   color: var(--continuum-editor-text);
   font-family:
-    "Sabon Pro Roman",
-    "Adobe Garamond Pro",
-    "EB Garamond",
-    "Cormorant Garamond",
-    Garamond,
-    Georgia,
-    "Times New Roman",
-    serif;
+    "Lato Continuum",
+    Lato,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
   font-kerning: normal;
-  font-size: 19px;
-  font-weight: 400;
+  font-size: 0.95rem;
+  font-weight: 300;
   font-feature-settings: "kern" 1, "liga" 1, "onum" 1, "pnum" 1;
   font-variant-ligatures: common-ligatures;
   font-variant-numeric: oldstyle-nums proportional-nums;
   hyphens: auto;
   hyphenate-limit-chars: 6 3 3;
-  letter-spacing: 0.005em;
-  line-height: 1.35;
+  letter-spacing: 0;
+  line-height: 1.2;
   orphans: 2;
   text-align: justify;
   text-justify: inter-word;
@@ -1228,14 +1274,14 @@ button:disabled {
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: -0.02em;
+  word-spacing: 0.002em;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
   -webkit-hyphens: auto;
 }
 
 .continuum-editor-surface .tiptap p {
-  margin: 0 0 1.25em;
+  margin: 0 0 1.4rem;
 }
 
 .continuum-editor-surface .tiptap p[data-node-type="aphorism"] {
@@ -1263,20 +1309,20 @@ button:disabled {
   content: attr(data-aphorism-label);
   display: block;
   font-family:
-    "Sabon Pro Roman",
-    "Adobe Garamond Pro",
-    "EB Garamond",
-    "Cormorant Garamond",
-    Garamond,
-    Georgia,
-    "Times New Roman",
-    serif;
+    "Lato Continuum",
+    Lato,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
   font-size: 1.08em;
   font-variant-ligatures: discretionary-ligatures;
   font-feature-settings: "onum" 1, "pnum" 1;
   font-variant-numeric: oldstyle-nums proportional-nums;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-weight: 300;
+  letter-spacing: 0;
   margin-bottom: 1.62rem;
   opacity: 1;
   text-align: center;
@@ -1287,8 +1333,12 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap h2 {
+  font-size: 1.6rem;
+  font-weight: 400;
   font-variant-ligatures: discretionary-ligatures;
   font-variant-numeric: lining-nums proportional-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.01;
 }
 
 .continuum-editor-surface .tiptap .versalitas {
