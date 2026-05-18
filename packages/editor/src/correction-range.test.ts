@@ -614,30 +614,38 @@ describe("extractSelectionPlainTextMap", () => {
       },
     ]
 
-    const first = suggestions[0]!
-    expect(applyCorrectionSuggestionToEditor(editor, workingMap, first)).toEqual({
-      status: "applied",
-    })
+    const applyPendingSuggestion = (id: string) => {
+      const suggestion = suggestions.find((item) => item.id === id)
+      expect(suggestion).toBeDefined()
+      expect(suggestion?.status).toBe("pending")
 
-    suggestions = shiftSuggestionOffsets(
-      suggestions.map((item) =>
-        item.id === first.id ? { ...item, status: "applied" } : item,
-      ),
-      first.originalOffset,
-      first.originalLength,
-      first.replacement.length - first.originalLength,
-    )
+      expect(applyCorrectionSuggestionToEditor(editor, workingMap, suggestion!)).toEqual({
+        status: "applied",
+      })
 
-    const afterFirst = extractSelectionPlainTextMap(editor)
-    expect(afterFirst.ok).toBe(true)
-    if (!afterFirst.ok) {
-      editor.destroy()
-      return
+      suggestions = shiftSuggestionOffsets(
+        suggestions.map((item) =>
+          item.id === suggestion!.id ? { ...item, status: "applied" } : item,
+        ),
+        suggestion!.originalOffset,
+        suggestion!.originalLength,
+        suggestion!.replacement.length - suggestion!.originalLength,
+      )
+
+      const nextExtraction = extractSelectionPlainTextMap(editor)
+      expect(nextExtraction.ok).toBe(true)
+      if (!nextExtraction.ok) {
+        throw new Error("expected selection map after applying suggestion")
+      }
+
+      workingMap = nextExtraction.map
+      suggestions = refreshCorrectionSuggestionStatuses(
+        suggestions,
+        workingMap.plainText,
+      )
     }
 
-    workingMap = afterFirst.map
-    suggestions = refreshCorrectionSuggestionStatuses(suggestions, workingMap.plainText)
-
+    applyPendingSuggestion("remove-sobre")
     expect(workingMap.plainText).toBe(" valorar esas esar")
     expect(suggestions.map((item) => [item.id, item.status])).toEqual([
       ["remove-sobre", "applied"],
@@ -646,10 +654,13 @@ describe("extractSelectionPlainTextMap", () => {
       ["esar", "pending"],
     ])
 
-    const second = suggestions.find((item) => item.id === "valorar")!
-    expect(applyCorrectionSuggestionToEditor(editor, workingMap, second)).toEqual({
-      status: "applied",
-    })
+    applyPendingSuggestion("valorar")
+    applyPendingSuggestion("esas")
+    applyPendingSuggestion("esar")
+
+    expect(workingMap.plainText).toBe(" sobrevalorar esa estar")
+    expect(editor.state.doc.textContent).toBe(" sobrevalorar esa estar")
+    expect(suggestions.every((item) => item.status === "applied")).toBe(true)
 
     editor.destroy()
   })
