@@ -1,5 +1,5 @@
 import type { Editor } from "@tiptap/core"
-import type { StructuredNoteDraft } from "@continuum/core"
+import type { StructuredNoteDraft, StructuredNoteDraftReference } from "@continuum/core"
 import {
   createNewStructuredNoteDraft,
   excerptFromPlainText,
@@ -519,6 +519,7 @@ export default function App() {
   const [editor, setEditor] = useState<Editor | null>(null)
   const [editorRevision, setEditorRevision] = useState(0)
   const [referenceSearch, setReferenceSearch] = useState("")
+  const [referenceLibrary, setReferenceLibrary] = useState<StructuredNoteDraftReference[]>([])
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
     isOpen: false,
@@ -907,11 +908,15 @@ export default function App() {
         setAuthSession(session)
         setAuthLoaded(true)
         step = "leer biblioteca local"
-        const list = await nextRepo.listNotesMeta({ folder: "all" })
+        const [list, allRefs] = await Promise.all([
+          nextRepo.listNotesMeta({ folder: "all" }),
+          nextRepo.listAllReferences(),
+        ])
         if (!active) {
           return
         }
         setNotes(list)
+        setReferenceLibrary(allRefs)
         const [status, openConflicts] = await Promise.all([
           nextRepo.getSyncStatus(),
           nextRepo.listOpenConflicts(),
@@ -1780,6 +1785,8 @@ export default function App() {
 
       setFullNote(saved)
       setReferenceSearch("")
+      const newRef = saved.structuredDraft.references.find((r) => r.id === refId)
+      if (newRef) setReferenceLibrary((prev) => [...prev, newRef])
       await refreshList()
       await refreshSyncStatus()
     } finally {
@@ -2040,6 +2047,7 @@ export default function App() {
           canRetrySync={Boolean(syncStatus?.pendingCount)}
           creatingReference={creatingReference}
           filteredReferences={filteredReferences}
+          referenceLibrary={referenceLibrary}
           folder={folder}
           isOpen={editorMenu.isOpen}
           lexicalLookup={lexicalLookup}
