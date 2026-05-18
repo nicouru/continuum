@@ -37,7 +37,6 @@ import {
   unmarkCurrentBlockAsAphorism,
   type ContinuumCitationClickDetails,
   type ContinuumEditorPayload,
-  type SelectionPlainTextMap,
   type TipTapJsonNode,
 } from "@continuum/editor"
 import type {
@@ -74,19 +73,21 @@ import {
 import {
   CorrectionError,
   createCorrectionSuggestions,
-  rebaseCorrectionSuggestionOffsets,
   refreshCorrectionSuggestionStatuses,
   shiftSuggestionOffsets,
-  type CorrectionSessionIdentity,
-  type CorrectionSessionRecord,
   type CorrectionSuggestion,
 } from "@continuum/correction"
 import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
+import { ContinuumAiPanel } from "./ContinuumAiPanel"
 import {
-  ContinuumAiPanel,
+  createReadyAiCorrectionState,
+  getAiCorrectionSelectionIdentity,
+  isAiCorrectionSelectionError,
+  refreshReadyAiCorrectionForIdentity,
+  type AiCorrectionReadyState,
   type ContinuumAiPanelCorrectionState,
-} from "./ContinuumAiPanel"
+} from "./ai-correction-state"
 import {
   createContinuumCorrectionProvider,
   isCorrectionConfigured,
@@ -104,15 +105,6 @@ import { useLexicalLookup } from "./use-lexical-lookup"
 import { useAiCorrectionSessions } from "./use-ai-correction-sessions"
 import { useSidebarResize } from "./use-sidebar-resize"
 import "./App.css"
-
-type AiCorrectionReadyState = Extract<
-  ContinuumAiPanelCorrectionState,
-  { status: "ready" }
->
-
-type AiCorrectionSelectionIdentity = CorrectionSessionIdentity & {
-  map: SelectionPlainTextMap
-}
 
 const MONTHS_ES = [
   "Enero",
@@ -300,99 +292,6 @@ function formatRetryTime(value: string | null) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
-}
-
-function getNodeStringAttribute(attrs: Record<string, unknown>, key: string) {
-  const value = attrs[key]
-  return typeof value === "string" ? value.trim() : ""
-}
-
-function isAiCorrectionBlockType(typeName: string) {
-  return (
-    typeName === "paragraph" ||
-    typeName === "structuredParagraph" ||
-    typeName === "aphorism" ||
-    typeName === "referenceInsert"
-  )
-}
-
-function getAiCorrectionSelectionIdentity(
-  editor: Editor | null,
-  noteId: string | null,
-): AiCorrectionSelectionIdentity | { ok: false; reason: string } {
-  if (!noteId) {
-    return { ok: false, reason: "No hay nota activa." }
-  }
-
-  const extraction = extractSelectionPlainTextMap(editor)
-
-  if (!extraction.ok) {
-    return extraction
-  }
-
-  const { selectionFrom, selectionTo } = extraction.map
-  const blockKeys: string[] = []
-
-  editor?.state.doc.nodesBetween(selectionFrom, selectionTo, (node, position) => {
-    if (!node.isBlock || !isAiCorrectionBlockType(node.type.name)) {
-      return
-    }
-
-    const attrs = node.attrs as Record<string, unknown>
-    const blockId =
-      getNodeStringAttribute(attrs, "blockId") ||
-      getNodeStringAttribute(attrs, "referenceInsertId") ||
-      `position-${position}`
-    const contentFrom = position + 1
-    const relativeFrom = Math.max(0, Math.max(selectionFrom, contentFrom) - contentFrom)
-    const partialPrefix = relativeFrom > 0 ? `@${relativeFrom}` : ""
-
-    blockKeys.push(`${blockId}${partialPrefix}`)
-    return false
-  })
-
-  const selectionKey =
-    blockKeys.length > 0
-      ? blockKeys.join("|")
-      : `range-${selectionFrom}-${selectionTo}`
-
-  return {
-    key: `${noteId}:${selectionKey}`,
-    noteId,
-    selectionKey,
-    map: extraction.map,
-  }
-}
-
-function isAiCorrectionSelectionError(
-  value: AiCorrectionSelectionIdentity | { ok: false; reason: string },
-): value is { ok: false; reason: string } {
-  return "ok" in value && value.ok === false
-}
-
-function createReadyAiCorrectionState(
-  identity: AiCorrectionSelectionIdentity,
-  session: CorrectionSessionRecord,
-): AiCorrectionReadyState {
-  return {
-    status: "ready",
-    session: {
-      key: identity.key,
-      noteId: identity.noteId,
-      selectionKey: identity.selectionKey,
-    },
-    sourceText: session.sourceText,
-    originalText: identity.map.plainText,
-    correctedText: session.correctedText,
-    warnings: session.warnings,
-    suggestions: rebaseCorrectionSuggestionOffsets(
-      session.suggestions,
-      session.currentText,
-      identity.map.plainText,
-    ),
-    map: identity.map,
-    usage: session.usage,
-  }
 }
 
 function hasUnpushedLocalState(note: NoteFull) {
@@ -830,40 +729,13 @@ export default function App() {
         return { status: "idle" }
       }
 
-      const currentSessionKey =
-        current.status === "ready" ? current.session?.key : undefined
+      if (current.status === "ready") {
+        const refreshed = refreshReadyAiCorrectionForIdentity(current, identity)
 
-      if (current.status === "ready" && currentSessionKey === identity.key) {
-        const next: AiCorrectionReadyState = {
-          ...current,
-          originalText: identity.map.plainText,
-          map: identity.map,
-          suggestions: rebaseCorrectionSuggestionOffsets(
-            current.suggestions,
-            current.originalText,
-            identity.map.plainText,
-          ),
+        if (refreshed) {
+          persistAiCorrectionState(refreshed)
+          return refreshed
         }
-        persistAiCorrectionState(next)
-        return next
-      }
-
-      if (
-        current.status === "ready" &&
-        current.session?.noteId === identity.noteId &&
-        current.originalText === identity.map.plainText
-      ) {
-        const next: AiCorrectionReadyState = {
-          ...current,
-          session: {
-            key: identity.key,
-            noteId: identity.noteId,
-            selectionKey: identity.selectionKey,
-          },
-          map: identity.map,
-        }
-        persistAiCorrectionState(next)
-        return next
       }
 
       const cached = findAiCorrectionSession(identity.key)

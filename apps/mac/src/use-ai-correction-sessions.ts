@@ -4,35 +4,14 @@ import {
   type CorrectionSessionRecord,
 } from "@continuum/correction"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { ContinuumAiPanelCorrectionState } from "./ContinuumAiPanel"
+import {
+  createAiCorrectionSessionRecord,
+  type AiCorrectionReadyState,
+} from "./ai-correction-state"
 import {
   readAiCorrectionSessions,
   writeAiCorrectionSessions,
 } from "./ai-correction-sessions"
-
-type ReadyAiCorrectionState = Extract<
-  ContinuumAiPanelCorrectionState,
-  { status: "ready" }
->
-
-function createAiCorrectionSessionRecord(
-  correction: ReadyAiCorrectionState,
-): CorrectionSessionRecord | null {
-  if (!correction.session) {
-    return null
-  }
-
-  return {
-    ...correction.session,
-    sourceText: correction.sourceText,
-    currentText: correction.originalText,
-    correctedText: correction.correctedText,
-    warnings: correction.warnings,
-    suggestions: correction.suggestions,
-    usage: correction.usage,
-    updatedAt: Date.now(),
-  }
-}
 
 export function useAiCorrectionSessions() {
   const sessionsRef = useRef<CorrectionSessionRecord[]>([])
@@ -87,7 +66,7 @@ export function useAiCorrectionSessions() {
   }, [])
 
   const persistAiCorrectionState = useCallback(
-    (correction: ReadyAiCorrectionState) => {
+    (correction: AiCorrectionReadyState) => {
       const session = createAiCorrectionSessionRecord(correction)
 
       if (session) {

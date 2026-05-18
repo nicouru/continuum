@@ -1,29 +1,6 @@
-import type {
-  CorrectionSessionIdentity,
-  CorrectionSuggestion,
-  CorrectionUsageMetadata,
-} from "@continuum/correction"
-import type { SelectionPlainTextMap } from "@continuum/editor"
+import type { CorrectionSuggestion } from "@continuum/correction"
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react"
-
-export type ContinuumAiPanelCorrectionState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | {
-      status: "error"
-      message: string
-    }
-  | {
-      status: "ready"
-      session?: CorrectionSessionIdentity
-      sourceText: string
-      originalText: string
-      correctedText: string
-      warnings: string[]
-      suggestions: CorrectionSuggestion[]
-      map: SelectionPlainTextMap
-      usage?: CorrectionUsageMetadata
-    }
+import type { ContinuumAiPanelCorrectionState } from "./ai-correction-state"
 
 type ContinuumAiPanelProps = {
   configured: boolean
