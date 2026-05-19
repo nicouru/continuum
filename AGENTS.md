@@ -5,6 +5,10 @@ repo as an editor, sync, and local-first data system, not as a generic React
 app. Before changing code, read the context files in `.context/` and the
 relevant ADRs in `docs/adr/`.
 
+Continuum is coordinated with Diario, but it is not the publication authority.
+Read `docs/diario-coordination.md` before changing structured note contracts,
+sync payloads, references, citations, or publish/unpublish behavior.
+
 ## Required First Steps
 
 1. Run `git status --short --branch` and identify the active branch.
@@ -56,6 +60,7 @@ git diff --check
 - `contract-fixtures/*`: cross-app structured draft fixtures.
 - `.context/*`: persistent agent memory and product invariants.
 - `docs/adr/*`: accepted architecture decisions.
+- `docs/diario-coordination.md`: cross-repo relationship with Diario.
 
 ## Do Not Do
 
