@@ -31,11 +31,20 @@ Implemented:
 - Split Vite vendor chunks for React, TipTap/ProseMirror, and KaTeX.
 - Explicit publish/unpublish action through Diario's admin lifecycle command.
 - Structured note validation/conversion tests.
+- Newsreader-based editor typography, 500px canonical editor measure, and
+  left-aligned writing column.
+- Right editor panel, lexical lookup block, AI correction panel and return
+  marker action (`Marca para volver`).
+- Coordination docs with Diario so Reader/publication work stays owned by the
+  Diario repo.
 
 Mocked or deferred:
 
 - Search UI and SQLite FTS5 migrations.
-- Full visual parity audit against Diario edge cases.
+- Release-candidate secret storage through OS Keychain or Stronghold.
+- Shared contract extraction with Diario if the duplicated structured draft
+  contract becomes a maintenance bottleneck.
+- Full mobile-client readiness pass for future iOS/Android clients.
 - Production app icon/branding pass.
 
 ## Repository Shape
@@ -197,6 +206,10 @@ connect directly to the production database.
 
 ## Next Review Items
 
-- Audit TipTap JSON <-> StructuredNoteDraft parity against Diario golden cases.
+- Keep TipTap JSON <-> StructuredNoteDraft parity aligned with Diario golden
+  cases, especially when Reader or publication semantics change in Diario.
 - Add SQLite FTS5 migrations after the search model is ready.
-- Exercise the app through `pnpm tauri:dev` on macOS with real writing sessions.
+- Exercise AI correction and reference editing through long real writing
+  sessions before release-candidate hardening.
+- Reader online polish belongs in Diario; Continuum should only change when the
+  shared contract, draft sync or authoring UX actually requires it.

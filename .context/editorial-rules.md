@@ -24,7 +24,9 @@ management. The interface should stay quiet, precise, and built around the text.
 
 ## Typography And Format
 
-1. Body writing uses Sabon Pro where available.
+1. Continuum's editor currently uses Newsreader Continuum for the writing
+   surface. Reader typography decisions live in Diario and should be
+   coordinated intentionally.
 2. Literary numerals should use oldstyle numerals where the design calls for
    them, especially dates and aphorism numbers.
 3. Visible dates use Spanish literary format, for example:
@@ -42,8 +44,9 @@ management. The interface should stay quiet, precise, and built around the text.
 2. Avoid dashboard language, onboarding copy, promotional language, and visible
    instructions inside the writing surface.
 3. UI labels should be short and functional.
-4. The Reader and Continuum should stay typographically aligned unless there is
-   a deliberate editing-specific reason.
+4. The Reader and Continuum should stay conceptually aligned, but visual fixes
+   for the public Reader belong in Diario unless a Continuum authoring issue is
+   explicitly in scope.
 
 ## Editing Behavior
 
