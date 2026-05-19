@@ -1245,23 +1245,18 @@ button:disabled {
   font-variation-settings: "opsz" 18;
   font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: oldstyle-nums proportional-nums;
-  hyphens: auto;
-  hyphenate-limit-chars: 5 2 2;
   letter-spacing: 0.001em;
   line-height: 1.26;
   orphans: 2;
-  text-align: justify;
-  text-justify: auto;
+  text-align: left;
   text-rendering: auto;
   text-shadow: var(--continuum-editor-ink-bleed);
   text-wrap: pretty;
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: -0.015em;
   -moz-osx-font-smoothing: auto;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
-  -webkit-hyphens: auto;
 }
 
 .continuum-editor-surface .tiptap p {
