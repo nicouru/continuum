@@ -808,6 +808,19 @@ export default function App() {
     currentEditor.chain().focus().insertContent(word).run()
   }, [])
 
+  const handleInsertReturnMarker = useCallback(() => {
+    const currentEditor = editorRef.current
+
+    if (!currentEditor) {
+      return
+    }
+
+    const { from, to } = currentEditor.state.selection
+    const insertAt = from === to ? from : to
+
+    currentEditor.chain().focus().insertContentAt(insertAt, "⁎").run()
+  }, [])
+
   const openNoteMenuAt = useCallback((x: number, y: number, noteIds: string[]) => {
     const position = clampFloatingMenuPosition(x, y, 240, 56)
     setNoteMenu({ isOpen: true, noteIds, ...position })
@@ -2084,6 +2097,7 @@ export default function App() {
           onClose={closeEditorMenu}
           onConvertInlineMath={() => convertMarkdownInlineMath(editorRef.current)}
           onCreateReferenceInsert={() => convertSelectionToReferenceInsert(editorRef.current)}
+          onInsertReturnMarker={handleInsertReturnMarker}
           onLogout={handleLogout}
           onManualSave={handleManualSave}
           onPublishToggle={handlePublishToggle}

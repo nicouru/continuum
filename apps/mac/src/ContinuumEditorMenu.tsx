@@ -84,6 +84,7 @@ type ContinuumEditorMenuProps = {
   onClose: () => void
   onConvertInlineMath: () => void
   onCreateReferenceInsert: () => void
+  onInsertReturnMarker: () => void
   onLogout: () => void
   onSetAppearanceMode: (value: "dark" | "light") => void
   onJoinPreviousAphorism: () => void
@@ -145,6 +146,7 @@ export function ContinuumEditorMenu({
   onClose,
   onConvertInlineMath,
   onCreateReferenceInsert,
+  onInsertReturnMarker,
   onLogout,
   onSetAppearanceMode,
   onJoinPreviousAphorism,
@@ -282,6 +284,9 @@ export function ContinuumEditorMenu({
           title="Texto"
         >
           <div className="continuum-menu-list">
+            <MenuButton icon="⁎" onClick={onInsertReturnMarker}>
+              Marca para volver
+            </MenuButton>
             <MenuButton icon="A" onClick={onToggleAphorism}>
               Aforismo
             </MenuButton>
