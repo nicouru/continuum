@@ -1,4 +1,4 @@
-import type { StructuredNoteDraft } from "@continuum/core"
+import type { StructuredNoteDraft, StructuredNoteDraftReference } from "@continuum/core"
 import {
   excerptFromPlainText,
   extractStructuredDraftPlainText,
@@ -588,6 +588,16 @@ export function createAsyncSqlNoteRepository(db: AsyncSqlDatabase) {
         [noteId],
       )
       await enqueueSync(noteId, note.localVersion)
+    },
+
+    async listAllReferences(): Promise<StructuredNoteDraftReference[]> {
+      const rows = await db.select<{ payload: string }>(
+        `SELECT payload FROM reference_index`,
+      )
+      return rows.flatMap((r) => {
+        const parsed = parseUnknownJson(r.payload)
+        return parsed && typeof parsed === "object" ? [parsed as StructuredNoteDraftReference] : []
+      })
     },
   }
 }
