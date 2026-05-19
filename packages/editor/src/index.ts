@@ -1,5 +1,10 @@
 export { adminTipTapExtensions } from "./extensions"
 export {
+  AiSelectionHighlightExtension,
+  aiSelectionHighlightPluginKey,
+  type AiSelectionHighlightRange,
+} from "./ai-selection-highlight"
+export {
   normalizeEditorIdentity,
   syncReferenceInsertLabels,
   makeId,
@@ -22,6 +27,17 @@ export type {
   ActiveInlineMathDetails,
   ActiveBlockDetails,
 } from "./editor-queries"
+export {
+  applyCorrectionSuggestionToEditor,
+  canSafelyApplyAllSuggestions,
+  canSafelyApplySuggestion,
+  extractSelectionPlainTextMap,
+  verifyPlainTextMatchesMap,
+  type ApplyCorrectionSuggestionResult,
+  type SelectionPlainTextExtraction,
+  type SelectionPlainTextMap,
+  type SelectionPlainTextSegment,
+} from "./correction-range"
 export {
   getSelectedText,
   getSelectedEditableTextBlocks,

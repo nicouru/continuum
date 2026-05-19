@@ -6,9 +6,34 @@
   src: url("./assets/fonts/sabon-pro-roman/SabonProRoman.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "Newsreader Continuum";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("./assets/fonts/newsreader/Newsreader-variable-latin.woff2")
+    format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Newsreader Continuum";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("./assets/fonts/newsreader/Newsreader-variable-latin-ext.woff2")
+    format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
 .continuum-shell {
   --continuum-editor-page-bg: #050505;
-  --continuum-editor-text: rgba(255, 251, 242, 0.89);
+  --continuum-editor-text: rgb(255 251 242);
   --continuum-editor-soft: #b8c7d5;
   --continuum-editor-muted: #9fb2c5;
   --continuum-editor-link: #8ec5ff;
@@ -18,7 +43,7 @@
   --continuum-editor-reference-missing: #ff736f;
   --continuum-editor-superscript: rgba(255, 255, 255, 0.8577);
   --continuum-editor-ink-bleed: none;
-  --continuum-editor-smoothing: antialiased;
+  --continuum-editor-smoothing: auto;
   --continuum-hairline: rgb(100 100 100 / 0.5);
   display: flex;
   height: 100vh;
@@ -35,8 +60,8 @@
 }
 
 .continuum-shell[data-theme="light"] {
-  --continuum-editor-page-bg: #fffdfa;
-  --continuum-editor-text: rgba(0, 0, 0, 0.89);
+  --continuum-editor-page-bg: #ffffff;
+  --continuum-editor-text: rgb(0 0 0);
   --continuum-editor-soft: rgba(0, 0, 0, 0.85);
   --continuum-editor-muted: rgba(0, 0, 0, 0.58);
   --continuum-editor-link: #2f6f9f;
@@ -658,6 +683,382 @@ button:disabled {
   overflow: hidden;
 }
 
+.continuum-main-workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.continuum-editor-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Persistent highlight painted on the AI correction selection range.
+   Uses Decoration.inline so it is read-only and never stored in the doc. */
+.continuum-ai-selection-highlight {
+  background-color: rgba(255, 195, 30, 0.16);
+  border-radius: 2px;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-selection-highlight {
+  background-color: rgba(210, 140, 0, 0.13);
+}
+
+.continuum-ai-panel {
+  position: fixed;
+  z-index: 39;
+  width: min(320px, calc(100vw - 56px));
+  height: calc(100vh - 56px);
+  max-height: calc(100vh - 56px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border: 1px solid #474747;
+  border-radius: 8px;
+  background: #050505;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.62);
+  color: #ededed;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui,
+    sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1.22;
+  scrollbar-color: rgb(130 130 130 / 0.24) transparent;
+  scrollbar-width: thin;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel {
+  border-color: rgba(29, 29, 27, 0.18);
+  background: #fffdfa;
+  box-shadow: 0 18px 55px rgb(0 0 0 / 0.18);
+  color: rgb(0 0 0 / 0.89);
+}
+
+.continuum-ai-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #333333;
+  background: #050505;
+}
+
+.continuum-ai-panel-header strong {
+  display: block;
+  color: #cfcfcf;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.continuum-ai-panel-header p {
+  margin: 4px 0 0;
+  color: #9d9d9d;
+  font-size: 12px;
+  line-height: 1.32;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-header {
+  border-bottom-color: rgba(29, 29, 27, 0.14);
+  background: #fffdfa;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-header strong {
+  color: rgb(0 0 0 / 0.78);
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-header p {
+  color: rgb(0 0 0 / 0.55);
+}
+
+.continuum-ai-panel-close,
+.continuum-ai-panel-secondary {
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  background: #121212;
+  color: #a8a8a8;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-close,
+.continuum-shell[data-theme="light"] .continuum-ai-panel-secondary {
+  border-color: rgba(29, 29, 27, 0.16);
+  background: rgba(29, 29, 27, 0.04);
+  color: rgb(0 0 0 / 0.62);
+}
+
+.continuum-ai-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 10px 10px;
+  border-bottom: 1px solid #262626;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-section {
+  border-bottom-color: rgba(29, 29, 27, 0.12);
+}
+
+.continuum-ai-panel-config-row,
+.continuum-ai-panel-api-key-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.continuum-ai-panel-link-button {
+  border: 0;
+  background: transparent;
+  color: #b8b8b8;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-link-button {
+  color: #335f93;
+}
+
+.continuum-ai-panel-api-key-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.continuum-ai-panel-api-key-form input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #0b0b0b;
+  color: #eeeeee;
+  font: inherit;
+  font-size: 12px;
+  padding: 8px 9px;
+}
+
+.continuum-ai-panel-api-key-form input:focus {
+  border-color: #666666;
+  outline: none;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-api-key-form input {
+  border-color: rgba(29, 29, 27, 0.16);
+  background: #fffdfa;
+  color: #1d1d1b;
+}
+
+.continuum-ai-panel-label {
+  color: #9d9d9d;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-label {
+  color: rgba(0, 0, 0, 0.58);
+}
+
+.continuum-ai-panel-selection,
+.continuum-ai-panel-hint,
+.continuum-ai-panel-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.continuum-ai-panel-selection {
+  white-space: pre-wrap;
+  color: #b8b8b8;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-selection {
+  color: #1d1d1b;
+}
+
+.continuum-ai-panel-primary {
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #0b0b0b;
+  color: #eeeeee;
+  cursor: pointer;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.continuum-ai-panel-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-primary {
+  border-color: rgba(29, 29, 27, 0.16);
+  background: rgba(29, 29, 27, 0.04);
+  color: rgb(0 0 0 / 0.78);
+}
+
+.continuum-ai-panel-error {
+  color: #ff8f8b;
+}
+
+.continuum-ai-panel-warnings {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.continuum-ai-panel-preview {
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #0b0b0b;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-preview {
+  border-color: rgba(29, 29, 27, 0.14);
+  background: #fffdfa;
+}
+
+.continuum-ai-panel-preview-change {
+  display: inline;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font-weight: 700;
+  color: #ffd27a;
+  cursor: pointer;
+  font: inherit;
+  padding: 0 1px;
+  text-align: inherit;
+  white-space: pre-wrap;
+}
+
+.continuum-ai-panel-preview-change:hover {
+  background: rgb(255 210 122 / 0.12);
+}
+
+.continuum-ai-panel-preview-change:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.continuum-ai-panel-preview-muted {
+  color: #9d9d9d;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-preview-change {
+  color: #9a5b00;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-preview-change:hover {
+  background: rgb(154 91 0 / 0.1);
+}
+
+.continuum-ai-panel-suggestions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.continuum-ai-panel-suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.continuum-ai-panel-suggestion {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  border: 1px solid #333333;
+  border-radius: 6px;
+  background: #0b0b0b;
+  color: #eeeeee;
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.continuum-ai-panel-suggestion:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-suggestion {
+  border-color: rgba(29, 29, 27, 0.14);
+  background: #fffdfa;
+  color: #1d1d1b;
+}
+
+.continuum-ai-panel-suggestion small {
+  color: #9d9d9d;
+  font-size: 11px;
+}
+
+.continuum-ai-panel-usage {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #9d9d9d;
+}
+
+.continuum-ai-panel-usage summary {
+  cursor: pointer;
+}
+
+.continuum-ai-panel-usage dl {
+  margin: 8px 0 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+}
+
+.continuum-ai-panel-usage dt {
+  margin: 0;
+  color: #8c8c8c;
+}
+
+.continuum-ai-panel-usage dd {
+  margin: 0;
+  color: #b8b8b8;
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-usage,
+.continuum-shell[data-theme="light"] .continuum-ai-panel-usage dt {
+  color: rgba(0, 0, 0, 0.58);
+}
+
+.continuum-shell[data-theme="light"] .continuum-ai-panel-usage dd {
+  color: #1d1d1b;
+}
+
 .continuum-empty {
   align-items: center;
   justify-content: center;
@@ -814,52 +1215,57 @@ button:disabled {
 
 .continuum-editor-surface .tiptap {
   --continuum-editor-text-padding: clamp(18px, 3vw, 32px);
+  /* The visual lab reference renders a 500px text column despite its 36rem slider value. */
+  --continuum-editor-text-measure: 500px;
   box-sizing: content-box;
   width: min(
-    500px,
+    var(--continuum-editor-text-measure),
     calc(100% - var(--continuum-editor-text-padding) - var(--continuum-editor-text-padding))
   );
-  max-width: 500px;
+  max-width: var(--continuum-editor-text-measure);
   margin: 4px auto 0;
   outline: none;
   min-height: 520px;
   padding: var(--continuum-editor-text-padding);
   color: var(--continuum-editor-text);
   font-family:
-    "Sabon Pro Roman",
-    "Adobe Garamond Pro",
-    "EB Garamond",
-    "Cormorant Garamond",
-    Garamond,
-    Georgia,
-    "Times New Roman",
-    serif;
+    "Newsreader Continuum",
+    Newsreader,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
   font-kerning: normal;
-  font-size: 19px;
-  font-weight: 400;
-  font-feature-settings: "kern" 1, "liga" 1, "onum" 1, "pnum" 1;
-  font-variant-ligatures: common-ligatures;
+  font-size: 1.11rem;
+  font-weight: 300;
+  font-optical-sizing: none;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
+  font-variation-settings: "opsz" 18;
+  font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: oldstyle-nums proportional-nums;
   hyphens: auto;
   hyphenate-limit-chars: 6 3 3;
-  letter-spacing: 0.005em;
-  line-height: 1.35;
+  letter-spacing: 0.001em;
+  line-height: 1.26;
   orphans: 2;
   text-align: justify;
-  text-justify: inter-word;
-  text-rendering: optimizeLegibility;
+  text-justify: auto;
+  text-rendering: auto;
   text-shadow: var(--continuum-editor-ink-bleed);
+  text-wrap: pretty;
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: -0.02em;
-  -moz-osx-font-smoothing: grayscale;
+  word-spacing: -0.010em;
+  -moz-osx-font-smoothing: auto;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
   -webkit-hyphens: auto;
 }
 
 .continuum-editor-surface .tiptap p {
-  margin: 0 0 1.25em;
+  margin: 0 0 1.2rem;
 }
 
 .continuum-editor-surface .tiptap p[data-node-type="aphorism"] {
@@ -887,20 +1293,22 @@ button:disabled {
   content: attr(data-aphorism-label);
   display: block;
   font-family:
-    "Sabon Pro Roman",
-    "Adobe Garamond Pro",
-    "EB Garamond",
-    "Cormorant Garamond",
-    Garamond,
-    Georgia,
-    "Times New Roman",
-    serif;
+    "Newsreader Continuum",
+    Newsreader,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    system-ui,
+    sans-serif;
   font-size: 1.08em;
-  font-variant-ligatures: discretionary-ligatures;
-  font-feature-settings: "onum" 1, "pnum" 1;
+  font-variant-ligatures: common-ligatures contextual;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
   font-variant-numeric: oldstyle-nums proportional-nums;
-  font-weight: 400;
-  letter-spacing: 0.02em;
+  font-weight: 300;
+  font-optical-sizing: none;
+  font-variation-settings: "opsz" 18;
+  letter-spacing: 0.001em;
   margin-bottom: 1.62rem;
   opacity: 1;
   text-align: center;
@@ -911,8 +1319,15 @@ button:disabled {
 }
 
 .continuum-editor-surface .tiptap h2 {
-  font-variant-ligatures: discretionary-ligatures;
+  font-size: 2.19rem;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "onum" 1, "pnum" 1;
+  font-weight: 455;
+  font-optical-sizing: none;
+  font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: lining-nums proportional-nums;
+  font-variation-settings: "opsz" 42;
+  letter-spacing: 0em;
+  line-height: 1.02;
 }
 
 .continuum-editor-surface .tiptap .versalitas {
@@ -1099,17 +1514,20 @@ button:disabled {
 }
 
 .continuum-editor-menu::-webkit-scrollbar,
+.continuum-ai-panel::-webkit-scrollbar,
 .continuum-editor-surface::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
 .continuum-editor-menu::-webkit-scrollbar-track,
+.continuum-ai-panel::-webkit-scrollbar-track,
 .continuum-editor-surface::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.continuum-editor-menu::-webkit-scrollbar-thumb {
+.continuum-editor-menu::-webkit-scrollbar-thumb,
+.continuum-ai-panel::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: rgb(130 130 130 / 0.24);
 }
@@ -1120,6 +1538,7 @@ button:disabled {
 }
 
 .continuum-editor-menu::-webkit-scrollbar-thumb:hover,
+.continuum-ai-panel::-webkit-scrollbar-thumb:hover,
 .continuum-editor-surface::-webkit-scrollbar-thumb:hover {
   background: rgb(130 130 130 / 0.32);
 }

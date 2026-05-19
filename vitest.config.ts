@@ -10,6 +10,10 @@ export default defineConfig({
         __dirname,
         "packages/lexical/src/index.ts",
       ),
+      "@continuum/correction": path.resolve(
+        __dirname,
+        "packages/correction/src/index.ts",
+      ),
       "@continuum/storage": path.resolve(__dirname, "packages/storage/src/index.ts"),
       "@continuum/storage/types": path.resolve(
         __dirname,
@@ -20,7 +24,7 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["packages/*/src/**/*.test.ts"],
+    include: ["packages/*/src/**/*.test.ts", "apps/mac/src/**/*.test.ts"],
     passWithNoTests: false,
   },
 })

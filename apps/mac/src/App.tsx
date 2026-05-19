@@ -24,7 +24,6 @@ import {
   getActiveCitationDetails,
   getActiveReferenceInsertDetails,
   getFirstInlineMathInSelection,
-  getSelectedText,
   joinCurrentBlockToPreviousAphorism,
   makeId,
   markAllParagraphsAsAphorisms,
@@ -61,27 +60,29 @@ import {
   writeEmergencyDraft,
 } from "./emergency-draft"
 import type { AsyncSqlNoteRepository } from "./note-repository/async-sql-note-repository"
-import { readPreferences, writePreferences } from "./preferences"
+import { readPreferences } from "./preferences"
 import { createContinuumSyncClient } from "./sync-client"
 import {
   ContinuumEditorMenu,
-  type ContinuumEditorMenuLexicalLookup,
   type ContinuumEditorMenuReferenceInput,
 } from "./ContinuumEditorMenu"
-import {
-  LexicalLookupError,
-  normalizeSingleSelectedWord,
-} from "@continuum/lexical"
 import brandLogoBlackUrl from "./assets/brand/logo-serpiente-black-64.png"
 import brandLogoUrl from "./assets/brand/logo-serpiente-white-64.png"
-import { createContinuumLexicalProvider } from "./lexical-client"
+import { ContinuumAiPanel } from "./ContinuumAiPanel"
+import { isCorrectionConfigured } from "./correction-client"
+import {
+  clampFloatingMenuPosition,
+  initialAiPanelPosition,
+  initialEditorMenuPosition,
+  useFloatingPanelLayout,
+} from "./use-floating-panel-layout"
+import { useContinuumPreferencesState } from "./use-continuum-preferences-state"
+import { useContinuumKeyboardShortcuts } from "./use-continuum-keyboard-shortcuts"
+import { useEditorRevision } from "./use-editor-revision"
+import { useLexicalLookup } from "./use-lexical-lookup"
+import { useSidebarResize } from "./use-sidebar-resize"
+import { useAiCorrectionPanel } from "./hooks/useAiCorrectionPanel"
 import "./App.css"
-
-const SIDEBAR_MIN_WIDTH = 250
-const SIDEBAR_MAX_WIDTH = 460
-const SIDEBAR_DEFAULT_WIDTH = 320
-const EDITOR_MENU_WIDTH = 360
-const EDITOR_MENU_MARGIN = 28
 
 const MONTHS_ES = [
   "Enero",
@@ -97,10 +98,6 @@ const MONTHS_ES = [
   "Noviembre",
   "Diciembre",
 ]
-
-function clampSidebarWidth(value: number) {
-  return Math.max(SIDEBAR_MIN_WIDTH, Math.min(value, SIDEBAR_MAX_WIDTH))
-}
 
 function formatDiaryDate(value: string) {
   const [year, month, day] = value.split("-").map(Number)
@@ -133,16 +130,6 @@ function bootstrapErrorMessage(error: unknown): string {
   }
   const fallback = String(error)
   return fallback === "[object Object]" ? "No se pudo abrir la base local." : fallback
-}
-
-function lexicalErrorMessage(error: unknown): string {
-  if (error instanceof LexicalLookupError) {
-    return error.message
-  }
-  if (error instanceof Error) {
-    return error.message
-  }
-  return "No se pudo consultar la fuente lexical."
 }
 
 function syncStateLabel(state: NoteMeta["syncState"]) {
@@ -269,22 +256,6 @@ function formatRetryTime(value: string | null) {
     return null
   }
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-}
-
-function clampFloatingMenuPosition(
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  const margin = 10
-  const menuWidth = Math.min(width, window.innerWidth - margin * 2)
-  const menuHeight = Math.min(height, window.innerHeight - margin * 2)
-
-  return {
-    x: Math.max(margin, Math.min(x, window.innerWidth - menuWidth - margin)),
-    y: Math.max(margin, Math.min(y, window.innerHeight - menuHeight - margin)),
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -493,9 +464,20 @@ export default function App() {
   const [loginSubmitting, setLoginSubmitting] = useState(false)
   const [creatingNote, setCreatingNote] = useState(false)
 
-  const [appearanceMode, setAppearanceMode] = useState<"dark" | "light">("dark")
-  const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH)
+  const {
+    appearanceMode,
+    applyPreferences,
+    commitSidebarWidth,
+    handleClearOpenAiApiKey,
+    handleSaveOpenAiApiKey,
+    handleSetAppearanceMode,
+    handleToggleSidebar,
+    openAiApiKey,
+    saveLastOpenedNoteId,
+    setSidebarWidth,
+    sidebarVisible,
+    sidebarWidth,
+  } = useContinuumPreferencesState()
   const [sidebarSelectionFocus, setSidebarSelectionFocus] = useState(false)
   const [newlyCreatedNoteId, setNewlyCreatedNoteId] = useState<string | null>(null)
   const [noteIdToFocusOnLoad, setNoteIdToFocusOnLoad] = useState<string | null>(null)
@@ -517,17 +499,15 @@ export default function App() {
   const [syncBusy, setSyncBusy] = useState(false)
   const [offline, setOffline] = useState(false)
   const [editor, setEditor] = useState<Editor | null>(null)
-  const [editorRevision, setEditorRevision] = useState(0)
+  const editorRevision = useEditorRevision(editor)
   const [referenceSearch, setReferenceSearch] = useState("")
   const [referenceLibrary, setReferenceLibrary] = useState<StructuredNoteDraftReference[]>([])
   const [creatingReference, setCreatingReference] = useState(false)
   const [editorMenu, setEditorMenu] = useState({
     isOpen: false,
-    x: 0,
-    y: 0,
+    ...initialEditorMenuPosition,
   })
-  const [lexicalLookup, setLexicalLookup] =
-    useState<ContinuumEditorMenuLexicalLookup | null>(null)
+  const [aiPanelPosition, setAiPanelPosition] = useState(initialAiPanelPosition)
   const [citationPreview, setCitationPreview] = useState<{
     citationId: string
     left: number
@@ -548,16 +528,52 @@ export default function App() {
   const editorRef = useRef<Editor | null>(null)
   const mainRef = useRef<HTMLElement | null>(null)
   const debounceRef = useRef<number | undefined>(undefined)
-  const lexicalAbortRef = useRef<AbortController | null>(null)
-  const lexicalRequestIdRef = useRef(0)
   const offlineRef = useRef(false)
   offlineRef.current = offline
 
   const selectedRef = useRef<string | null>(null)
   selectedRef.current = selectedId
 
+  const { getAiPanelPosition, getEditorMenuPosition } =
+    useFloatingPanelLayout(mainRef)
+  const syncAiPanelPosition = useCallback(() => {
+    setAiPanelPosition(getAiPanelPosition())
+  }, [getAiPanelPosition])
+  const {
+    aiCorrection,
+    aiPanelOpen,
+    aiSelectionSummary,
+    canApplyAll,
+    closeAiPanel,
+    dismissAiPanel,
+    handleApplyAllAiSuggestions,
+    handleApplyAiSuggestion,
+    handleRunAiCorrection,
+    openAiPanel,
+    toggleAiPanel,
+  } = useAiCorrectionPanel({
+    editorRef,
+    editorRevision,
+    onAiPanelOpen: syncAiPanelPosition,
+    openAiApiKey,
+    selectedId,
+  })
+  const {
+    clearLexicalLookup,
+    lexicalLookup,
+    startLexicalLookupFromSelection,
+  } = useLexicalLookup({
+    editorRef,
+    editorRevision,
+    isMenuOpen: editorMenu.isOpen,
+  })
+  const handleSidebarResizeMouseDown = useSidebarResize({
+    commitSidebarWidth,
+    setSidebarWidth,
+    sidebarWidth,
+  })
+
   const remote = useMemo(() => createContinuumSyncClient(authSession), [authSession])
-  const lexicalProvider = useMemo(() => createContinuumLexicalProvider(), [])
   const engineRef = useRef<DraftSyncEngine | null>(null)
   const remoteImportSessionRef = useRef("")
   const selectedNoteIdSet = useMemo(
@@ -627,115 +643,32 @@ export default function App() {
     setConflicts(openConflicts)
   }, [repo])
 
-  useEffect(() => {
-    if (!editor) {
-      return
-    }
-    const bumpRevision = () => setEditorRevision((value) => value + 1)
-    editor.on("selectionUpdate", bumpRevision)
-    editor.on("update", bumpRevision)
-    bumpRevision()
-
-    return () => {
-      editor.off("selectionUpdate", bumpRevision)
-      editor.off("update", bumpRevision)
-    }
-  }, [editor])
-
-  useEffect(() => {
-    return () => lexicalAbortRef.current?.abort()
-  }, [])
-
-  const getEditorMenuPosition = useCallback(() => {
-    const menuWidth = Math.min(
-      EDITOR_MENU_WIDTH,
-      window.innerWidth - EDITOR_MENU_MARGIN * 2,
-    )
-    const mainRect = mainRef.current?.getBoundingClientRect()
-    const editorRect = mainRef.current
-      ?.querySelector(".continuum-editor-surface .tiptap")
-      ?.getBoundingClientRect()
-    const fallbackX = window.innerWidth - menuWidth - EDITOR_MENU_MARGIN
-    const y = Math.max(EDITOR_MENU_MARGIN, mainRect?.top ?? EDITOR_MENU_MARGIN)
-
-    if (!editorRect) {
-      return { x: fallbackX, y }
-    }
-
-    const rightSpaceStart = editorRect.right + EDITOR_MENU_MARGIN
-    const rightSpaceEnd = window.innerWidth - EDITOR_MENU_MARGIN
-    const rightSpaceWidth = rightSpaceEnd - rightSpaceStart
-    const x =
-      rightSpaceWidth >= menuWidth
-        ? rightSpaceStart + (rightSpaceWidth - menuWidth) / 2
-        : fallbackX
-
-    return { x: Math.max(EDITOR_MENU_MARGIN, Math.min(x, fallbackX)), y }
-  }, [])
-
-  const clearLexicalLookup = useCallback(() => {
-    lexicalAbortRef.current?.abort()
-    lexicalAbortRef.current = null
-    lexicalRequestIdRef.current += 1
-    setLexicalLookup(null)
-  }, [])
-
-  const startLexicalLookupFromSelection = useCallback(() => {
-    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
-
-    lexicalAbortRef.current?.abort()
-    lexicalRequestIdRef.current += 1
-
-    if (!term) {
-      lexicalAbortRef.current = null
-      setLexicalLookup(null)
-      return
-    }
-
-    const requestId = lexicalRequestIdRef.current
-    const controller = new AbortController()
-    lexicalAbortRef.current = controller
-    setLexicalLookup({ status: "loading", term })
-
-    lexicalProvider
-      .lookup(term, { signal: controller.signal })
-      .then((result) => {
-        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
-          return
-        }
-        setLexicalLookup({ result, status: "ready", term })
-      })
-      .catch((error: unknown) => {
-        if (lexicalRequestIdRef.current !== requestId || controller.signal.aborted) {
-          return
-        }
-        setLexicalLookup({
-          message: lexicalErrorMessage(error),
-          status: "error",
-          term,
-        })
-      })
-  }, [lexicalProvider])
-
   const openEditorMenuPanel = useCallback(() => {
     startLexicalLookupFromSelection()
     setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
   }, [getEditorMenuPosition, startLexicalLookupFromSelection])
 
   const toggleToolsPanel = useCallback(() => {
-    if (editorMenu.isOpen) {
+    if (editorMenu.isOpen || aiPanelOpen) {
       setEditorMenu((current) => ({ ...current, isOpen: false }))
+      dismissAiPanel()
       clearLexicalLookup()
       return
     }
 
     startLexicalLookupFromSelection()
     setEditorMenu({ isOpen: true, ...getEditorMenuPosition() })
+    syncAiPanelPosition()
+    openAiPanel()
   }, [
+    aiPanelOpen,
     clearLexicalLookup,
+    dismissAiPanel,
     editorMenu.isOpen,
     getEditorMenuPosition,
+    openAiPanel,
     startLexicalLookupFromSelection,
+    syncAiPanelPosition,
   ])
 
   const closeEditorMenu = useCallback(() => {
@@ -743,29 +676,33 @@ export default function App() {
     clearLexicalLookup()
   }, [clearLexicalLookup])
 
+  const refreshFloatingPanelPositions = useCallback(() => {
+    if (editorMenu.isOpen) {
+      setEditorMenu((current) =>
+        current.isOpen ? { ...current, ...getEditorMenuPosition() } : current,
+      )
+    }
+
+    if (aiPanelOpen) {
+      setAiPanelPosition(getAiPanelPosition())
+    }
+  }, [aiPanelOpen, editorMenu.isOpen, getAiPanelPosition, getEditorMenuPosition])
+
   useEffect(() => {
-    if (!editorMenu.isOpen) {
+    if (!editorMenu.isOpen && !aiPanelOpen) {
       return
     }
 
-    const term = normalizeSingleSelectedWord(getSelectedText(editorRef.current))
-
-    if (!term) {
-      if (lexicalLookup) {
-        clearLexicalLookup()
-      }
-      return
-    }
-
-    if (lexicalLookup?.term !== term) {
-      startLexicalLookupFromSelection()
-    }
+    refreshFloatingPanelPositions()
+    window.addEventListener("resize", refreshFloatingPanelPositions)
+    return () => window.removeEventListener("resize", refreshFloatingPanelPositions)
   }, [
-    clearLexicalLookup,
+    aiPanelOpen,
     editorMenu.isOpen,
-    editorRevision,
-    lexicalLookup,
-    startLexicalLookupFromSelection,
+    refreshFloatingPanelPositions,
+    selectedId,
+    sidebarVisible,
+    sidebarWidth,
   ])
 
   const closeCitationPreview = useCallback(() => {
@@ -826,41 +763,18 @@ export default function App() {
     setNoteMenu({ isOpen: true, noteIds, ...position })
   }, [])
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && noteMenu.isOpen) {
-        closeNoteMenu()
-        return
-      }
-
-      if (event.key === "Escape" && citationPreview) {
-        closeCitationPreview()
-        return
-      }
-
-      if (event.key === "Escape" && editorMenu.isOpen) {
-        closeEditorMenu()
-        return
-      }
-
-      if (!event.metaKey || (event.key !== "9" && event.code !== "Digit9")) {
-        return
-      }
-      event.preventDefault()
-      toggleToolsPanel()
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [
-    closeEditorMenu,
+  useContinuumKeyboardShortcuts({
+    aiPanelOpen,
+    citationPreviewOpen: Boolean(citationPreview),
+    editorMenuOpen: editorMenu.isOpen,
+    noteMenuOpen: noteMenu.isOpen,
+    closeAiPanel,
     closeCitationPreview,
+    closeEditorMenu,
     closeNoteMenu,
-    citationPreview,
-    editorMenu.isOpen,
-    noteMenu.isOpen,
+    toggleAiPanel,
     toggleToolsPanel,
-  ])
+  })
 
   useEffect(() => {
     const visibleIds = new Set(notes.map((note) => note.id))
@@ -915,9 +829,7 @@ export default function App() {
         }
         setRepo(nextRepo)
         setDeviceId(devId)
-        setAppearanceMode(prefs.appearanceMode)
-        setSidebarVisible(prefs.sidebarVisible)
-        setSidebarWidth(clampSidebarWidth(prefs.sidebarWidth))
+        applyPreferences(prefs)
         setAuthSession(session)
         setAuthLoaded(true)
         step = "leer biblioteca local"
@@ -985,7 +897,7 @@ export default function App() {
     return () => {
       active = false
     }
-  }, [])
+  }, [applyPreferences])
 
   useEffect(() => {
     if (!repo || !authSession) {
@@ -1074,11 +986,11 @@ export default function App() {
         setFullNote(note)
       }
     })
-    void writePreferences({ lastOpenedNoteId: selectedId })
+    saveLastOpenedNoteId(selectedId)
     return () => {
       cancelled = true
     }
-  }, [repo, selectedId])
+  }, [repo, saveLastOpenedNoteId, selectedId])
 
   useEffect(() => {
     if (!fullNote) {
@@ -1296,40 +1208,6 @@ export default function App() {
     },
     [scheduleAutosave],
   )
-
-  const handleToggleSidebar = () => {
-    const next = !sidebarVisible
-    setSidebarVisible(next)
-    void writePreferences({ sidebarVisible: next })
-  }
-
-  const handleSetAppearanceMode = (value: "dark" | "light") => {
-    setAppearanceMode(value)
-    void writePreferences({ appearanceMode: value })
-  }
-
-  const handleSidebarResizeMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const startX = event.clientX
-    const startWidth = sidebarWidth
-    document.body.classList.add("continuum-sidebar-is-resizing")
-
-    const handleMove = (moveEvent: MouseEvent) => {
-      setSidebarWidth(clampSidebarWidth(startWidth + moveEvent.clientX - startX))
-    }
-
-    const handleUp = (upEvent: MouseEvent) => {
-      const nextWidth = clampSidebarWidth(startWidth + upEvent.clientX - startX)
-      setSidebarWidth(nextWidth)
-      void writePreferences({ sidebarWidth: nextWidth })
-      document.body.classList.remove("continuum-sidebar-is-resizing")
-      window.removeEventListener("mousemove", handleMove)
-      window.removeEventListener("mouseup", handleUp)
-    }
-
-    window.addEventListener("mousemove", handleMove)
-    window.addEventListener("mouseup", handleUp)
-  }
 
   const handleSelectNoteFromList = (
     event: ReactMouseEvent<HTMLButtonElement>,
@@ -2048,7 +1926,25 @@ export default function App() {
           citationPreview={citationPreview}
           onClose={closeCitationPreview}
         />
-        <ContinuumEditorMenu
+        <ContinuumAiPanel
+          canApplyAll={canApplyAll}
+          configured={isCorrectionConfigured(openAiApiKey)}
+          correction={aiCorrection}
+          isOpen={aiPanelOpen}
+          onApplyAll={handleApplyAllAiSuggestions}
+          onApplySuggestion={handleApplyAiSuggestion}
+          onClearApiKey={handleClearOpenAiApiKey}
+          onClose={closeAiPanel}
+          onRunCorrection={handleRunAiCorrection}
+          onSaveApiKey={handleSaveOpenAiApiKey}
+          selectionSummary={aiSelectionSummary}
+          width={aiPanelPosition.width}
+          x={aiPanelPosition.x}
+          y={aiPanelPosition.y}
+        />
+        <div className="continuum-main-workspace">
+          <div className="continuum-editor-column">
+            <ContinuumEditorMenu
           activeCitation={activeCitation}
           activeReferenceInsert={activeReferenceInsert}
           appearanceMode={appearanceMode}
@@ -2137,6 +2033,7 @@ export default function App() {
           syncPendingCount={syncStatus?.pendingCount ?? 0}
           title={title}
           writtenAt={writtenAt}
+          width={editorMenu.width}
           x={editorMenu.x}
           y={editorMenu.y}
         />
@@ -2227,6 +2124,8 @@ export default function App() {
           title={title}
           writtenAt={writtenAt}
         />
+          </div>
+        </div>
       </main>
     </div>
   )
