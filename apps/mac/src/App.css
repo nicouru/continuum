@@ -1246,7 +1246,7 @@ button:disabled {
   font-variant-ligatures: common-ligatures contextual;
   font-variant-numeric: oldstyle-nums proportional-nums;
   hyphens: auto;
-  hyphenate-limit-chars: 6 3 3;
+  hyphenate-limit-chars: 5 2 2;
   letter-spacing: 0.001em;
   line-height: 1.26;
   orphans: 2;
@@ -1258,7 +1258,7 @@ button:disabled {
   white-space: pre-wrap;
   widows: 2;
   word-break: normal;
-  word-spacing: -0.010em;
+  word-spacing: -0.015em;
   -moz-osx-font-smoothing: auto;
   -webkit-font-smoothing: var(--continuum-editor-smoothing);
   -webkit-hyphens: auto;
