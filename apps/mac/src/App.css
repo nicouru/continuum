@@ -1971,6 +1971,61 @@ button:disabled {
   gap: 7px;
 }
 
+.continuum-suggest-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.continuum-suggest-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.continuum-suggest-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid #393939;
+  border-radius: 6px;
+  background: #111111;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.55);
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.continuum-suggest-list li {
+  padding: 5px 10px;
+  color: #eeeeee;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continuum-suggest-list li:hover {
+  background: #222222;
+}
+
+.continuum-shell[data-theme="light"] .continuum-suggest-list {
+  border-color: rgba(29, 29, 27, 0.18);
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
+}
+
+.continuum-shell[data-theme="light"] .continuum-suggest-list li {
+  color: rgb(0 0 0 / 0.89);
+}
+
+.continuum-shell[data-theme="light"] .continuum-suggest-list li:hover {
+  background: #f0f0f0;
+}
+
 .continuum-reference-resolver {
   padding-bottom: 8px;
   border-bottom: 1px solid #252525;

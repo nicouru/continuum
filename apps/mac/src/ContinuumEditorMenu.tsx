@@ -10,7 +10,7 @@ import type {
   FormEvent,
   ReactNode,
 } from "react"
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 
 const VIEWPORT_MARGIN = 28
 type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
@@ -858,6 +858,57 @@ function ReferenceResolver({
   )
 }
 
+function SuggestInput({
+  suggestions,
+  value,
+  onChange,
+}: {
+  suggestions: string[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const filtered = useMemo(() => {
+    const q = value.trim().toLocaleLowerCase()
+    return q
+      ? suggestions.filter((s) => s.toLocaleLowerCase().includes(q))
+      : suggestions
+  }, [suggestions, value])
+
+  const handleSelect = useCallback(
+    (s: string) => {
+      onChange(s)
+      setOpen(false)
+    },
+    [onChange],
+  )
+
+  return (
+    <div className="continuum-suggest-wrap">
+      <input
+        type="text"
+        autoComplete="off"
+        value={value}
+        onChange={(e) => {
+          onChange(e.currentTarget.value)
+          setOpen(true)
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="continuum-suggest-list">
+          {filtered.map((s) => (
+            <li key={s} onMouseDown={() => handleSelect(s)}>
+              {s}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function ReferenceCreateForm({
   creatingReference,
   input,
@@ -933,31 +984,19 @@ function ReferenceCreateForm({
       <div className="continuum-menu-subtitle">Nueva referencia</div>
       <label className="continuum-menu-field">
         <span>Autor</span>
-        <input
-          type="text"
-          list="reference-author-suggestions"
+        <SuggestInput
+          suggestions={authorSuggestions}
           value={input.author}
-          onChange={(event) => handleAuthorChange(event.currentTarget.value)}
+          onChange={handleAuthorChange}
         />
-        <datalist id="reference-author-suggestions">
-          {authorSuggestions.map((author) => (
-            <option key={author} value={author} />
-          ))}
-        </datalist>
       </label>
       <label className="continuum-menu-field">
         <span>Obra</span>
-        <input
-          type="text"
-          list="reference-work-suggestions"
-          value={input.work}
-          onChange={(event) => handleWorkChange(event.currentTarget.value)}
+        <SuggestInput
+          suggestions={workSuggestions}
+          value={input.work ?? ""}
+          onChange={handleWorkChange}
         />
-        <datalist id="reference-work-suggestions">
-          {workSuggestions.map((work) => (
-            <option key={work} value={work} />
-          ))}
-        </datalist>
       </label>
       <label className="continuum-menu-field">
         <span>Texto</span>
