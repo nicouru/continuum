@@ -11,7 +11,6 @@ import type {
   ReactNode,
 } from "react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
-import { createPortal } from "react-dom"
 import {
   applyReferenceAuthorSuggestion,
   applyReferenceBodySuggestion,
@@ -874,8 +873,6 @@ function SuggestInput({
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
-  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
-  const inputRef = useRef<HTMLElement | null>(null)
 
   const filtered = useMemo(() => {
     const q = value.trim().toLocaleLowerCase()
@@ -883,18 +880,6 @@ function SuggestInput({
       ? suggestions.filter((s) => s.toLocaleLowerCase().includes(q))
       : suggestions
   }, [suggestions, value])
-
-  const updatePosition = useCallback(() => {
-    if (!inputRef.current) return
-    const r = inputRef.current.getBoundingClientRect()
-    setDropdownStyle({
-      position: "fixed",
-      top: r.bottom + 2,
-      left: r.left,
-      width: r.width,
-      zIndex: 9999,
-    })
-  }, [])
 
   const handleSelect = useCallback(
     (s: string) => {
@@ -908,60 +893,45 @@ function SuggestInput({
     <div className="continuum-suggest-wrap">
       {multiline ? (
         <textarea
-          ref={(node) => {
-            inputRef.current = node
-          }}
           rows={rows}
           placeholder={placeholder}
           value={value}
           onChange={(event) => {
             onChange(event.currentTarget.value)
-            updatePosition()
             setOpen(true)
           }}
-          onFocus={() => {
-            updatePosition()
-            setOpen(true)
-          }}
+          onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
         />
       ) : (
         <input
-          ref={(node) => {
-            inputRef.current = node
-          }}
           type="text"
           autoComplete="off"
           placeholder={placeholder}
           value={value}
           onChange={(event) => {
             onChange(event.currentTarget.value)
-            updatePosition()
             setOpen(true)
           }}
-          onFocus={() => {
-            updatePosition()
-            setOpen(true)
-          }}
+          onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
         />
       )}
-      {open &&
-        filtered.length > 0 &&
-        createPortal(
-          <ul
-            className="continuum-suggest-list"
-            data-theme={appearanceMode}
-            style={dropdownStyle}
-          >
-            {filtered.map((s) => (
-              <li key={s} onMouseDown={() => handleSelect(s)}>
-                {s}
-              </li>
-            ))}
-          </ul>,
-          document.body,
-        )}
+      {open && filtered.length > 0 ? (
+        <ul className="continuum-suggest-list" data-theme={appearanceMode}>
+          {filtered.map((s) => (
+            <li
+              key={s}
+              onMouseDown={(event) => {
+                event.preventDefault()
+                handleSelect(s)
+              }}
+            >
+              {s}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   )
 }
