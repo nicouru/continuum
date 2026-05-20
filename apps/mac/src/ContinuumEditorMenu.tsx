@@ -12,6 +12,13 @@ import type {
 } from "react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
+import {
+  applyReferenceAuthorSuggestion,
+  applyReferenceBodySuggestion,
+  applyReferenceWorkSuggestion,
+  getReferenceSuggestionValues,
+  type ReferenceAutocompleteInput,
+} from "./reference-autofill"
 
 const VIEWPORT_MARGIN = 28
 type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
@@ -26,18 +33,7 @@ function clampMenuPosition(x: number, y: number, width: number, height: number) 
   }
 }
 
-export type ContinuumEditorMenuReferenceInput = {
-  author: string
-  authorBirthYear: string
-  authorDeathYear: string
-  body: string
-  comment: string
-  edition: string
-  sourceText: string
-  translator: string
-  work: string
-  workDate: string
-}
+export type ContinuumEditorMenuReferenceInput = ReferenceAutocompleteInput
 
 export type ContinuumEditorMenuLexicalLookup =
   | {
@@ -414,6 +410,7 @@ export function ContinuumEditorMenu({
             </p>
           ) : null}
           <ReferenceCreateForm
+            appearanceMode={appearanceMode}
             creatingReference={creatingReference}
             input={referenceInput}
             mode={hasActiveReferenceTarget ? "active-target" : "library"}
@@ -860,17 +857,25 @@ function ReferenceResolver({
 }
 
 function SuggestInput({
+  appearanceMode,
+  multiline = false,
+  placeholder,
+  rows,
   suggestions,
   value,
   onChange,
 }: {
+  appearanceMode: "dark" | "light"
+  multiline?: boolean
+  placeholder?: string
+  rows?: number
   suggestions: string[]
   value: string
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLElement | null>(null)
 
   const filtered = useMemo(() => {
     const q = value.trim().toLocaleLowerCase()
@@ -901,26 +906,54 @@ function SuggestInput({
 
   return (
     <div className="continuum-suggest-wrap">
-      <input
-        ref={inputRef}
-        type="text"
-        autoComplete="off"
-        value={value}
-        onChange={(e) => {
-          onChange(e.currentTarget.value)
-          updatePosition()
-          setOpen(true)
-        }}
-        onFocus={() => {
-          updatePosition()
-          setOpen(true)
-        }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-      />
+      {multiline ? (
+        <textarea
+          ref={(node) => {
+            inputRef.current = node
+          }}
+          rows={rows}
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => {
+            onChange(event.currentTarget.value)
+            updatePosition()
+            setOpen(true)
+          }}
+          onFocus={() => {
+            updatePosition()
+            setOpen(true)
+          }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+      ) : (
+        <input
+          ref={(node) => {
+            inputRef.current = node
+          }}
+          type="text"
+          autoComplete="off"
+          placeholder={placeholder}
+          value={value}
+          onChange={(event) => {
+            onChange(event.currentTarget.value)
+            updatePosition()
+            setOpen(true)
+          }}
+          onFocus={() => {
+            updatePosition()
+            setOpen(true)
+          }}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+        />
+      )}
       {open &&
         filtered.length > 0 &&
         createPortal(
-          <ul className="continuum-suggest-list" style={dropdownStyle}>
+          <ul
+            className="continuum-suggest-list"
+            data-theme={appearanceMode}
+            style={dropdownStyle}
+          >
             {filtered.map((s) => (
               <li key={s} onMouseDown={() => handleSelect(s)}>
                 {s}
@@ -934,6 +967,7 @@ function SuggestInput({
 }
 
 function ReferenceCreateForm({
+  appearanceMode,
   creatingReference,
   input,
   mode,
@@ -941,6 +975,7 @@ function ReferenceCreateForm({
   onSubmit,
   referenceLibrary,
 }: {
+  appearanceMode: "dark" | "light"
   creatingReference: boolean
   input: ContinuumEditorMenuReferenceInput
   mode: "library" | "active-target"
@@ -952,50 +987,30 @@ function ReferenceCreateForm({
   referenceLibrary: readonly StructuredNoteDraftReference[]
 }) {
   const authorSuggestions = useMemo(
-    () => [...new Set(referenceLibrary.map((r) => r.author).filter(Boolean))].sort() as string[],
+    () => getReferenceSuggestionValues(referenceLibrary, "author"),
     [referenceLibrary],
   )
 
   const workSuggestions = useMemo(
-    () => [...new Set(referenceLibrary.map((r) => r.work).filter(Boolean))].sort() as string[],
+    () => getReferenceSuggestionValues(referenceLibrary, "work"),
+    [referenceLibrary],
+  )
+
+  const bodySuggestions = useMemo(
+    () => getReferenceSuggestionValues(referenceLibrary, "body"),
     [referenceLibrary],
   )
 
   const handleAuthorChange = (author: string) => {
-    const matches = referenceLibrary.filter((r) => r.author === author)
-    const first = matches[0]
-    const uniqueWork = matches.length === 1 ? first?.work : undefined
-    onChange({
-      ...input,
-      author,
-      ...(first
-        ? {
-            authorBirthYear: first.authorBirthYear?.toString() ?? input.authorBirthYear,
-            authorDeathYear: first.authorDeathYear?.toString() ?? input.authorDeathYear,
-            ...(uniqueWork ? { work: uniqueWork } : {}),
-          }
-        : {}),
-    })
+    onChange(applyReferenceAuthorSuggestion(input, referenceLibrary, author))
   }
 
   const handleWorkChange = (work: string) => {
-    const matches = referenceLibrary.filter((r) => r.work === work)
-    const first = matches[0]
-    const uniqueAuthor =
-      matches.length > 0 && new Set(matches.map((r) => r.author)).size === 1
-        ? first?.author
-        : undefined
-    onChange({
-      ...input,
-      work,
-      ...(uniqueAuthor && first
-        ? {
-            author: uniqueAuthor,
-            authorBirthYear: first.authorBirthYear?.toString() ?? input.authorBirthYear,
-            authorDeathYear: first.authorDeathYear?.toString() ?? input.authorDeathYear,
-          }
-        : {}),
-    })
+    onChange(applyReferenceWorkSuggestion(input, referenceLibrary, work))
+  }
+
+  const handleBodyChange = (body: string) => {
+    onChange(applyReferenceBodySuggestion(input, referenceLibrary, body))
   }
   const submitLabel =
     mode === "active-target" ? "Crear y asociar referencia" : "Crear referencia"
@@ -1009,6 +1024,7 @@ function ReferenceCreateForm({
       <label className="continuum-menu-field">
         <span>Autor</span>
         <SuggestInput
+          appearanceMode={appearanceMode}
           suggestions={authorSuggestions}
           value={input.author}
           onChange={handleAuthorChange}
@@ -1017,6 +1033,7 @@ function ReferenceCreateForm({
       <label className="continuum-menu-field">
         <span>Obra</span>
         <SuggestInput
+          appearanceMode={appearanceMode}
           suggestions={workSuggestions}
           value={input.work ?? ""}
           onChange={handleWorkChange}
@@ -1024,11 +1041,14 @@ function ReferenceCreateForm({
       </label>
       <label className="continuum-menu-field">
         <span>Texto</span>
-        <textarea
-          rows={3}
-          value={input.body}
+        <SuggestInput
+          appearanceMode={appearanceMode}
+          multiline
           placeholder="Referencia"
-          onChange={(event) => onChange({ ...input, body: event.currentTarget.value })}
+          rows={3}
+          suggestions={bodySuggestions}
+          value={input.body}
+          onChange={handleBodyChange}
         />
       </label>
       <details className="continuum-reference-details">

@@ -75,7 +75,7 @@ export async function pingDiarioSession(
     if (response.status === 401 || response.status === 403) {
       return "unauthorized"
     }
-    return "valid"
+    return response.ok ? "valid" : "unreachable"
   } catch {
     return "unreachable"
   }

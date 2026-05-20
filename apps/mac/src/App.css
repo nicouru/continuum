@@ -1981,6 +1981,11 @@ button:disabled {
   box-sizing: border-box;
 }
 
+.continuum-suggest-wrap textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .continuum-suggest-list {
   margin: 0;
   padding: 4px 0;
@@ -2007,17 +2012,17 @@ button:disabled {
   background: #222222;
 }
 
-.continuum-shell[data-theme="light"] .continuum-suggest-list {
+.continuum-suggest-list[data-theme="light"] {
   border-color: rgba(29, 29, 27, 0.18);
   background: #ffffff;
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
 }
 
-.continuum-shell[data-theme="light"] .continuum-suggest-list li {
+.continuum-suggest-list[data-theme="light"] li {
   color: rgb(0 0 0 / 0.89);
 }
 
-.continuum-shell[data-theme="light"] .continuum-suggest-list li:hover {
+.continuum-suggest-list[data-theme="light"] li:hover {
   background: #f0f0f0;
 }
 

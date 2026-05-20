@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "continuum-vite",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@continuum/mac", "dev"],
+      "port": 1420
+    }
+  ]
+}
