@@ -49,7 +49,9 @@ import {
   getConfiguredDiarioBaseUrl,
   loginToDiario,
   logoutFromDiario,
+  pingDiarioSession,
   readDiarioAuthSession,
+  refreshDiarioAuthSessionExpiry,
   saveDiarioAuthSession,
   type DiarioAuthSession,
 } from "./auth"
@@ -823,7 +825,17 @@ export default function App() {
         step = "leer preferencias locales"
         const prefs = await readPreferences()
         step = "leer sesion de Diario"
-        const session = await readDiarioAuthSession()
+        let session = await readDiarioAuthSession()
+        if (session) {
+          step = "validar sesion de Diario"
+          const ping = await pingDiarioSession(session)
+          if (ping === "unauthorized") {
+            await clearDiarioAuthSession()
+            session = null
+          } else if (ping === "valid") {
+            session = await refreshDiarioAuthSessionExpiry(session)
+          }
+        }
         if (!active) {
           return
         }

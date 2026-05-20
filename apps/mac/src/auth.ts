@@ -50,6 +50,37 @@ export async function saveDiarioAuthSession(session: DiarioAuthSession) {
   await store.save()
 }
 
+export async function refreshDiarioAuthSessionExpiry(session: DiarioAuthSession) {
+  const refreshed: DiarioAuthSession = {
+    ...session,
+    expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+  }
+  await saveDiarioAuthSession(refreshed)
+  return refreshed
+}
+
+export async function pingDiarioSession(
+  session: DiarioAuthSession,
+): Promise<"valid" | "unauthorized" | "unreachable"> {
+  try {
+    const response = await httpFetch(`${session.baseUrl}/api/admin/v1/notes`, {
+      headers: {
+        accept: "application/json",
+        cookie: session.sessionCookie,
+        origin: session.baseUrl,
+        referer: `${session.baseUrl}/admin`,
+      },
+      method: "GET",
+    })
+    if (response.status === 401 || response.status === 403) {
+      return "unauthorized"
+    }
+    return "valid"
+  } catch {
+    return "unreachable"
+  }
+}
+
 export async function clearDiarioAuthSession() {
   const store = await load(AUTH_STORE_PATH)
   await store.delete("session")
@@ -125,15 +156,12 @@ function isUsableSession(value: unknown): value is DiarioAuthSession {
   if (!isRecord(value)) {
     return false
   }
-  if (
-    typeof value.baseUrl !== "string" ||
-    typeof value.expiresAt !== "string" ||
-    typeof value.sessionCookie !== "string" ||
-    typeof value.userEmail !== "string"
-  ) {
-    return false
-  }
-  return Date.parse(value.expiresAt) > Date.now() + 60000
+  return (
+    typeof value.baseUrl === "string" &&
+    typeof value.expiresAt === "string" &&
+    typeof value.sessionCookie === "string" &&
+    typeof value.userEmail === "string"
+  )
 }
 
 function getSessionCookie(header: string | null) {
