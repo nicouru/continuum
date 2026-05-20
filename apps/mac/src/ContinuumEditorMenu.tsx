@@ -881,15 +881,43 @@ function ReferenceCreateForm({
     [referenceLibrary],
   )
 
+  const workSuggestions = useMemo(
+    () => [...new Set(referenceLibrary.map((r) => r.work).filter(Boolean))].sort() as string[],
+    [referenceLibrary],
+  )
+
   const handleAuthorChange = (author: string) => {
-    const match = referenceLibrary.find((r) => r.author === author)
+    const matches = referenceLibrary.filter((r) => r.author === author)
+    const first = matches[0]
+    const uniqueWork = matches.length === 1 ? first?.work : undefined
     onChange({
       ...input,
       author,
-      ...(match
+      ...(first
         ? {
-            authorBirthYear: match.authorBirthYear?.toString() ?? input.authorBirthYear,
-            authorDeathYear: match.authorDeathYear?.toString() ?? input.authorDeathYear,
+            authorBirthYear: first.authorBirthYear?.toString() ?? input.authorBirthYear,
+            authorDeathYear: first.authorDeathYear?.toString() ?? input.authorDeathYear,
+            ...(uniqueWork ? { work: uniqueWork } : {}),
+          }
+        : {}),
+    })
+  }
+
+  const handleWorkChange = (work: string) => {
+    const matches = referenceLibrary.filter((r) => r.work === work)
+    const first = matches[0]
+    const uniqueAuthor =
+      matches.length > 0 && new Set(matches.map((r) => r.author)).size === 1
+        ? first?.author
+        : undefined
+    onChange({
+      ...input,
+      work,
+      ...(uniqueAuthor && first
+        ? {
+            author: uniqueAuthor,
+            authorBirthYear: first.authorBirthYear?.toString() ?? input.authorBirthYear,
+            authorDeathYear: first.authorDeathYear?.toString() ?? input.authorDeathYear,
           }
         : {}),
     })
@@ -921,9 +949,15 @@ function ReferenceCreateForm({
         <span>Obra</span>
         <input
           type="text"
+          list="reference-work-suggestions"
           value={input.work}
-          onChange={(event) => onChange({ ...input, work: event.currentTarget.value })}
+          onChange={(event) => handleWorkChange(event.currentTarget.value)}
         />
+        <datalist id="reference-work-suggestions">
+          {workSuggestions.map((work) => (
+            <option key={work} value={work} />
+          ))}
+        </datalist>
       </label>
       <label className="continuum-menu-field">
         <span>Texto</span>
