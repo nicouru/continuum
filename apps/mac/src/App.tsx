@@ -604,6 +604,12 @@ export default function App() {
     () => filterReferences(activeDraft?.references ?? [], referenceSearch),
     [activeDraft, referenceSearch],
   )
+  const referenceLibraryForMenu = useMemo(() => {
+    const noteRefs = activeDraft?.references ?? []
+    const byId = new Map<string, StructuredNoteDraftReference>()
+    for (const ref of [...referenceLibrary, ...noteRefs]) byId.set(ref.id, ref)
+    return [...byId.values()]
+  }, [activeDraft, referenceLibrary])
   const selectedReferenceId = activeCitation?.referenceId ?? ""
   const selectedReferenceInsertId = activeReferenceInsert?.referenceId ?? ""
   const canCreateCitation = Boolean(editor && hasSelection && !selectionIncludesInlineMath)
@@ -1968,7 +1974,7 @@ export default function App() {
           canRetrySync={Boolean(syncStatus?.pendingCount)}
           creatingReference={creatingReference}
           filteredReferences={filteredReferences}
-          referenceLibrary={referenceLibrary}
+          referenceLibrary={referenceLibraryForMenu}
           folder={folder}
           isOpen={editorMenu.isOpen}
           lexicalLookup={lexicalLookup}
