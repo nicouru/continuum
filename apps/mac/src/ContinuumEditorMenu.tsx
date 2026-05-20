@@ -899,6 +899,9 @@ function SuggestInput({
     [onChange],
   )
 
+  const hasFocus = open
+  const showList = hasFocus && filtered.length > 0
+
   return (
     <div className="continuum-suggest-wrap">
       <input
@@ -917,10 +920,24 @@ function SuggestInput({
         }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {open &&
-        filtered.length > 0 &&
+      {/* DEBUG */}
+      {filtered.length > 0 &&
         createPortal(
-          <ul className="continuum-suggest-list" style={dropdownStyle}>
+          <ul
+            className="continuum-suggest-list"
+            style={
+              showList
+                ? {
+                    ...dropdownStyle,
+                    /* fallback si getBoundingClientRect falla */
+                    top: (dropdownStyle.top as number) || 200,
+                    left: (dropdownStyle.left as number) || 200,
+                    width: (dropdownStyle.width as number) || 240,
+                    background: "#8b0000",
+                  }
+                : { position: "fixed", top: -9999, left: -9999, width: 1 }
+            }
+          >
             {filtered.map((s) => (
               <li key={s} onMouseDown={() => handleSelect(s)}>
                 {s}
@@ -1006,6 +1023,10 @@ function ReferenceCreateForm({
       onSubmit={(event) => onSubmit(event, mode)}
     >
       <div className="continuum-menu-subtitle">Nueva referencia</div>
+      {/* DEBUG — remover antes de merge */}
+      <div style={{ fontSize: 10, color: "#888", lineHeight: 1.4 }}>
+        autores: {authorSuggestions.length} · obras: {workSuggestions.length} · biblioteca: {referenceLibrary.length}
+      </div>
       <label className="continuum-menu-field">
         <span>Autor</span>
         <SuggestInput
