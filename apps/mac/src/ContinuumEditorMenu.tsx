@@ -11,6 +11,7 @@ import type {
   ReactNode,
 } from "react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 
 const VIEWPORT_MARGIN = 28
 type MenuSectionId = "text" | "references" | "note" | "sync" | "application"
@@ -868,12 +869,27 @@ function SuggestInput({
   onChange: (value: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>({})
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const filtered = useMemo(() => {
     const q = value.trim().toLocaleLowerCase()
     return q
       ? suggestions.filter((s) => s.toLocaleLowerCase().includes(q))
       : suggestions
   }, [suggestions, value])
+
+  const updatePosition = useCallback(() => {
+    if (!inputRef.current) return
+    const r = inputRef.current.getBoundingClientRect()
+    setDropdownStyle({
+      position: "fixed",
+      top: r.bottom + 2,
+      left: r.left,
+      width: r.width,
+      zIndex: 9999,
+    })
+  }, [])
 
   const handleSelect = useCallback(
     (s: string) => {
@@ -886,25 +902,33 @@ function SuggestInput({
   return (
     <div className="continuum-suggest-wrap">
       <input
+        ref={inputRef}
         type="text"
         autoComplete="off"
         value={value}
         onChange={(e) => {
           onChange(e.currentTarget.value)
+          updatePosition()
           setOpen(true)
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          updatePosition()
+          setOpen(true)
+        }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
       />
-      {open && filtered.length > 0 && (
-        <ul className="continuum-suggest-list">
-          {filtered.map((s) => (
-            <li key={s} onMouseDown={() => handleSelect(s)}>
-              {s}
-            </li>
-          ))}
-        </ul>
-      )}
+      {open &&
+        filtered.length > 0 &&
+        createPortal(
+          <ul className="continuum-suggest-list" style={dropdownStyle}>
+            {filtered.map((s) => (
+              <li key={s} onMouseDown={() => handleSelect(s)}>
+                {s}
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   )
 }

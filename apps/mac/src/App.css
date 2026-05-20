@@ -1982,12 +1982,7 @@ button:disabled {
 }
 
 .continuum-suggest-list {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 999;
-  margin: 2px 0 0;
+  margin: 0;
   padding: 4px 0;
   list-style: none;
   border: 1px solid #393939;
