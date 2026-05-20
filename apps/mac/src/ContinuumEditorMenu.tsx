@@ -991,7 +991,7 @@ function ReferenceCreateForm({
       onSubmit={(event) => onSubmit(event, mode)}
     >
       <div className="continuum-menu-subtitle">Nueva referencia</div>
-      <label className="continuum-menu-field">
+      <div className="continuum-menu-field">
         <span>Autor</span>
         <SuggestInput
           appearanceMode={appearanceMode}
@@ -999,8 +999,8 @@ function ReferenceCreateForm({
           value={input.author}
           onChange={handleAuthorChange}
         />
-      </label>
-      <label className="continuum-menu-field">
+      </div>
+      <div className="continuum-menu-field">
         <span>Obra</span>
         <SuggestInput
           appearanceMode={appearanceMode}
@@ -1008,8 +1008,8 @@ function ReferenceCreateForm({
           value={input.work ?? ""}
           onChange={handleWorkChange}
         />
-      </label>
-      <label className="continuum-menu-field">
+      </div>
+      <div className="continuum-menu-field">
         <span>Texto</span>
         <SuggestInput
           appearanceMode={appearanceMode}
@@ -1020,7 +1020,7 @@ function ReferenceCreateForm({
           value={input.body}
           onChange={handleBodyChange}
         />
-      </label>
+      </div>
       <details className="continuum-reference-details">
         <summary>Detalles</summary>
         <div className="continuum-menu-field-grid">
